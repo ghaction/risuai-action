@@ -31,10 +31,10 @@ jobs:
     # 步骤 3: 设置 Node.js 环境
     - name: Setup Node.js
       uses: actions/setup-node@v4
-      working-directory: ./risu
       with:
         node-version: '20'
         cache: 'pnpm'
+        cache-dependency-path: './risu/pnpm-lock.yaml'  # 根据实际路径修改
 
     # 步骤 4: 安装依赖并构建
     - name: Install and build
