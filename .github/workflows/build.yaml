@@ -1,6 +1,7 @@
 name: Update Frontend
 
 on:
+  push:
   workflow_dispatch:  # 允许手动触发
   schedule:
     - cron: '0 0 * * *'  # 每天 UTC 时间 0 点自动触发
@@ -30,6 +31,7 @@ jobs:
     # 步骤 3: 设置 Node.js 环境
     - name: Setup Node.js
       uses: actions/setup-node@v4
+      working-directory: ./risu
       with:
         node-version: '20'
         cache: 'pnpm'
