@@ -60,4 +60,4 @@ jobs:
         git commit -m "chore(frontend): Auto-update from source repo"
         
         # 强制推送更新
-        git push origin main
+        git push -f origin main
