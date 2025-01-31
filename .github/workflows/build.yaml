@@ -25,6 +25,7 @@ jobs:
       run: |
         # 使用 token 克隆私有仓库（将 FRONTEND_TOKEN 添加到仓库 Secrets）
         git clone -b main https://github.com/kwaroran/RisuAI.git risu
+        npm install pnpm -g
           
     # 步骤 3: 设置 Node.js 环境
     - name: Setup Node.js
