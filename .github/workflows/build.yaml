@@ -7,68 +7,73 @@ on:
       - 'main'
     paths:
       - 'version'
-      
+
 concurrency:
   group: check
   cancel-in-progress: true
-  
+
 jobs:
   update-frontend:
     runs-on: ubuntu-latest
 
     steps:
-    # 步骤 1: 检出当前仓库
-    - name: Checkout current repository
-      uses: actions/checkout@v4
-      with:
-        ref: main  # 指定目标分支
-        token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
-    - name: rm files
-      run: |
-        rm -rf ./risu
-    # 步骤 2: 克隆目标前端仓库
-    - name: Clone frontend repository
-      run: |
-        # 使用 token 克隆私有仓库（将 FRONTEND_TOKEN 添加到仓库 Secrets）
-        git clone -b main https://github.com/kwaroran/RisuAI.git risu
-        npm install pnpm -g
+      # 步骤 1: 检出当前仓库
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          ref: main  # 指定目标分支
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # 步骤 2: 清理旧文件
+      - name: Clean old files
+        run: |
+          rm -rf ./risu
+
+      # 步骤 3: 克隆目标前端仓库
+      - name: Clone frontend repository
+        run: |
+          # 使用 token 克隆私有仓库（将 FRONTEND_TOKEN 添加到仓库 Secrets）
+          git clone -b main https://github.com/kwaroran/RisuAI.git risu
+          npm install pnpm -g
+
+      # 步骤 4: 设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: './risu/pnpm-lock.yaml'  # 根据实际路径修改
+
+      # 步骤 5: 安装依赖并构建
+      - name: Install and build
+        working-directory: ./risu
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      # 步骤 6: 清理构建后的无关文件
+      - name: Cleanup unnecessary files
+        run: |
+          rm -rf ./risu/.git
+          rm -rf ./risu/node_modules
+          rm -rf ./risu/.gitignore
+
+      # 步骤 7: 提交并推送更改
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
           
-    # 步骤 3: 设置 Node.js 环境
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'pnpm'
-        cache-dependency-path: './risu/pnpm-lock.yaml'  # 根据实际路径修改
+          # 添加所有变更（包括删除的文件）
+          git add -A
+          git commit -m "chore(frontend): Auto-update from source repo"
+          
+          # 强制推送更新
+          git push -f origin main
 
-    # 步骤 4: 安装依赖并构建
-    - name: Install and build
-      working-directory: ./risu
-      run: |
-        pnpm install --frozen-lockfile
-        pnpm build
-
-    # 步骤 5: 清理旧文件并复制新构建文件
-    - name: rm files
-      run: |
-        rm -rf ./risu/.git
-        rm -rf ./risu/node_modules
-        rm -rf ./risu/.gitignore
-
-    # 步骤 6: 提交并推送更改
-    - name: Commit and push changes
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        
-        # 添加所有变更（包括删除的文件）
-        git add -A
-        git commit -m "chore(frontend): Auto-update from source repo"
-        
-        # 强制推送更新
-        git push -f origin main
-    - name: Release
+      # 步骤 8: 创建发布
+      - name: Release
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
