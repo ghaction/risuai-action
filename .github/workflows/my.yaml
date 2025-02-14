@@ -109,11 +109,7 @@ jobs:
           rm -rf node_modules
           rm -rf .github
           rm -rf .vscode
-          rm -rf .gitignore
-          rm -rf .eslintrc.*
-          rm -rf .prettierrc.*
-          rm -rf *.md
-          rm -rf *.lock
+
 
       - name: Commit and push risu directory
         run: |
