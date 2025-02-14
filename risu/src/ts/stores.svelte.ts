@@ -115,7 +115,6 @@ $effect.root(() => {
         DBState?.db?.characters?.[selIdState.selId]?.chats?.[DBState?.db?.characters?.[selIdState.selId]?.chatPage]?.modules?.length
         DBState?.db?.characters?.[selIdState.selId]?.hideChatIcon
         DBState?.db?.characters?.[selIdState.selId]?.backgroundHTML
-        DBState?.db?.moduleIntergration
         moduleUpdate()
     })
 })

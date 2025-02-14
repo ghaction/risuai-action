@@ -12,7 +12,7 @@ import { defaultColorScheme, type ColorScheme } from '../gui/colorscheme';
 import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
-export let appVer = "149.1.0"
+export let appVer = "149.0.0"
 export let webAppSubVer = ''
 
 
@@ -474,14 +474,13 @@ export function setDatabase(data:Database){
     data.reasoningEffort ??= 0
     data.hypaV3Settings = {
         memoryTokensRatio: data.hypaV3Settings?.memoryTokensRatio ?? 0.2,
-        extraSummarizationRatio: data.hypaV3Settings?.extraSummarizationRatio ?? 0,
+        extraSummarizationRatio: data.hypaV3Settings?.extraSummarizationRatio ?? 0.2,
         maxChatsPerSummary: data.hypaV3Settings?.maxChatsPerSummary ?? 4,
         recentMemoryRatio: data.hypaV3Settings?.recentMemoryRatio ?? 0.4,
         similarMemoryRatio: data.hypaV3Settings?.similarMemoryRatio ?? 0.4,
         enableSimilarityCorrection: data.hypaV3Settings?.enableSimilarityCorrection ?? false,
         preserveOrphanedMemory: data.hypaV3Settings?.preserveOrphanedMemory ?? false,
-        processRegexScript: data.hypaV3Settings?.processRegexScript ?? false,
-        doNotSummarizeUserMessage: data.hypaV3Settings?.doNotSummarizeUserMessage ?? false
+        processRegexScript: data.hypaV3Settings?.processRegexScript ?? false
     }
     changeLanguage(data.language)
     setDatabaseLite(data)
@@ -895,7 +894,6 @@ export interface Database{
         enableSimilarityCorrection: boolean
         preserveOrphanedMemory: boolean
         processRegexScript: boolean
-        doNotSummarizeUserMessage: boolean
     },
     OaiCompAPIKeys: {[key:string]:string}
     inlayErrorResponse:boolean

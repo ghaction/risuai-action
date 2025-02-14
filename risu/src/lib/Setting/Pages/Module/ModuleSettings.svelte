@@ -4,14 +4,13 @@
     import { DBState } from 'src/ts/stores.svelte';
     import Button from "src/lib/UI/GUI/Button.svelte";
     import ModuleMenu from "src/lib/Setting/Pages/Module/ModuleMenu.svelte";
-    import { exportModule, importModule, refreshModules, type RisuModule } from "src/ts/process/modules";
+    import { exportModule, importModule, type RisuModule } from "src/ts/process/modules";
     import { DownloadIcon, Edit, TrashIcon, Globe, Share2Icon } from "lucide-svelte";
     import { v4 } from "uuid";
     import { tooltip } from "src/ts/gui/tooltip";
     import { alertCardExport, alertConfirm, alertError } from "src/ts/alert";
     import TextInput from "src/lib/UI/GUI/TextInput.svelte";
     import { ShowRealmFrameStore } from "src/ts/stores.svelte";
-    import { onDestroy } from "svelte";
     let tempModule:RisuModule = $state({
         name: '',
         description: '',
@@ -31,12 +30,6 @@
             return score
         })
     }
-
-    onDestroy(() => {
-        if(DBState.db.moduleIntergration){
-            refreshModules()
-        }
-    })
 </script>
 {#if mode === 0}
     <h2 class="mb-2 text-2xl font-bold mt-2">{language.modules}</h2>
@@ -55,12 +48,9 @@
                 <div class="pl-3 pt-3 text-left flex">
                     <span class="text-lg">{rmodule.name}</span>
                     <div class="flex-grow flex justify-end">
-                        <button class={(DBState.db.enabledModules.includes(rmodule.id)) ?
-                                "mr-2 cursor-pointer text-blue-500" :
-                                rmodule.namespace && 
-                                DBState.db.moduleIntergration.split(',').map((s) => s.trim()).includes(rmodule.namespace) ?
-                                "text-amber-500 hover:text-green-500 mr-2 cursor-pointer" :
-                                "text-textcolor2 hover:text-green-500 mr-2 cursor-pointer"
+                        <button class={(!DBState.db.enabledModules.includes(rmodule.id)) ?
+                                "text-textcolor2 hover:text-green-500 mr-2 cursor-pointer" :
+                                "mr-2 cursor-pointer text-blue-500"
                             } use:tooltip={language.enableGlobal} onclick={async (e) => {
                             e.stopPropagation()
                             if(DBState.db.enabledModules.includes(rmodule.id)){
@@ -92,10 +82,6 @@
                             e.stopPropagation()
                             const d = await alertConfirm(`${language.removeConfirm}` + rmodule.name)
                             if(d){
-                                if(DBState.db.enabledModules.includes(rmodule.id)){
-                                    DBState.db.enabledModules.splice(DBState.db.enabledModules.indexOf(rmodule.id), 1)
-                                    DBState.db.enabledModules = DBState.db.enabledModules
-                                }
                                 const index = DBState.db.modules.findIndex((v) => v.id === rmodule.id)
                                 DBState.db.modules.splice(index, 1)
                                 DBState.db.modules = DBState.db.modules

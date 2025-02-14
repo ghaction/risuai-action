@@ -421,12 +421,6 @@ export async function hypaMemoryV3(
         continue;
       }
 
-      if (db.hypaV3Settings.doNotSummarizeUserMessage && chat.role === "user") {
-        console.log(`[HypaV3] Skipping user role at index ${i}`);
-
-        continue;
-      }
-
       toSummarize.push(chat);
     }
 
@@ -442,24 +436,22 @@ export async function hypaMemoryV3(
     }
 
     // Attempt summarization
-    if (toSummarize.length > 0) {
-      const summarizeResult = await retryableSummarize(toSummarize);
+    const summarizeResult = await retryableSummarize(toSummarize);
 
-      if (!summarizeResult.success) {
-        return {
-          currentTokens,
-          chats,
-          error: `[HypaV3] Summarization failed after maximum retries: ${summarizeResult.data}`,
-          memory: toSerializableHypaV3Data(data),
-        };
-      }
-
-      data.summaries.push({
-        text: summarizeResult.data,
-        chatMemos: new Set(toSummarize.map((chat) => chat.memo)),
-        isImportant: false,
-      });
+    if (!summarizeResult.success) {
+      return {
+        currentTokens,
+        chats,
+        error: `[HypaV3] Summarization failed after maximum retries: ${summarizeResult.data}`,
+        memory: toSerializableHypaV3Data(data),
+      };
     }
+
+    data.summaries.push({
+      text: summarizeResult.data,
+      chatMemos: new Set(toSummarize.map((chat) => chat.memo)),
+      isImportant: false,
+    });
 
     currentTokens -= toSummarizeTokens;
     startIdx = endIdx;
@@ -476,37 +468,6 @@ export async function hypaMemoryV3(
     "\nAvailable Memory Tokens:",
     availableMemoryTokens
   );
-
-  // Early return if no summaries
-  if (data.summaries.length === 0) {
-    // Generate final memory prompt
-    const memory = encapsulateMemoryPrompt("");
-
-    const newChats: OpenAIChat[] = [
-      {
-        role: "system",
-        content: memory,
-        memo: "supaMemory",
-      },
-      ...chats.slice(startIdx),
-    ];
-
-    console.log(
-      "[HypaV3] Exiting function:",
-      "\nCurrent Tokens:",
-      currentTokens,
-      "\nAll chats, including memory prompt:",
-      newChats,
-      "\nMemory Data:",
-      data
-    );
-
-    return {
-      currentTokens,
-      chats: newChats,
-      memory: toSerializableHypaV3Data(data),
-    };
-  }
 
   const selectedSummaries: Summary[] = [];
   const randomMemoryRatio =

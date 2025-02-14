@@ -22,7 +22,6 @@ export enum LLMFlags{
     deepSeekPrefix,
     deepSeekThinkingInput,
     deepSeekThinkingOutput,
-    noCivilIntegrity
 }
 
 export enum LLMProvider{
@@ -876,30 +875,11 @@ export const LLMModels: LLMModel[] = [
         recommended: true
     },
     {
-        name: "Gemini Flash Lite Preview 2.0 0205",
-        id: 'gemini-2.0-flash-lite-preview-02-05',
-        provider: LLMProvider.GoogleCloud,
-        format: LLMFormat.GoogleCloud,
-        flags: [LLMFlags.geminiBlockOff,LLMFlags.hasImageInput, LLMFlags.hasFirstSystemPrompt, LLMFlags.poolSupported, LLMFlags.hasAudioInput, LLMFlags.hasVideoInput,  LLMFlags.hasStreaming, LLMFlags.requiresAlternateRole, LLMFlags.noCivilIntegrity],
-        parameters: ['temperature', 'top_k', 'top_p', 'presence_penalty', 'frequency_penalty'],
-        tokenizer: LLMTokenizer.GoogleCloud,
-        recommended: true
-    },
-    {
         name: "Gemini Pro 2.0 Exp 0128",
         id: 'gemini-2.0-pro-exp-01-28',
         provider: LLMProvider.GoogleCloud,
         format: LLMFormat.GoogleCloud,
         flags: [LLMFlags.geminiBlockOff,LLMFlags.hasImageInput, LLMFlags.hasFirstSystemPrompt, LLMFlags.poolSupported, LLMFlags.hasAudioInput, LLMFlags.hasVideoInput,  LLMFlags.hasStreaming, LLMFlags.requiresAlternateRole],
-        parameters: ['temperature', 'top_k', 'top_p', 'presence_penalty', 'frequency_penalty'],
-        tokenizer: LLMTokenizer.GoogleCloud,
-    },
-    {
-        name: "Gemini Pro 2.0 Exp",
-        id: 'gemini-2.0-pro-exp',
-        provider: LLMProvider.GoogleCloud,
-        format: LLMFormat.GoogleCloud,
-        flags: [LLMFlags.geminiBlockOff,LLMFlags.hasImageInput, LLMFlags.hasFirstSystemPrompt, LLMFlags.poolSupported, LLMFlags.hasAudioInput, LLMFlags.hasVideoInput,  LLMFlags.hasStreaming, LLMFlags.requiresAlternateRole, LLMFlags.noCivilIntegrity],
         parameters: ['temperature', 'top_k', 'top_p', 'presence_penalty', 'frequency_penalty'],
         tokenizer: LLMTokenizer.GoogleCloud,
         recommended: true
@@ -920,6 +900,7 @@ export const LLMModels: LLMModel[] = [
         provider: LLMProvider.GoogleCloud,
         format: LLMFormat.GoogleCloud,
         flags: [LLMFlags.hasImageInput, LLMFlags.hasFirstSystemPrompt,  LLMFlags.hasStreaming, LLMFlags.hasStreaming, LLMFlags.requiresAlternateRole],
+        recommended: true,
         parameters: ['temperature', 'top_k', 'top_p'],
         tokenizer: LLMTokenizer.GoogleCloud
     },
@@ -929,6 +910,7 @@ export const LLMModels: LLMModel[] = [
         provider: LLMProvider.GoogleCloud,
         format: LLMFormat.GoogleCloud,
         flags: [LLMFlags.hasImageInput, LLMFlags.hasFirstSystemPrompt, LLMFlags.hasStreaming, LLMFlags.requiresAlternateRole],
+        recommended: true,
         parameters: ['temperature', 'top_k', 'top_p'],
         tokenizer: LLMTokenizer.GoogleCloud
     },

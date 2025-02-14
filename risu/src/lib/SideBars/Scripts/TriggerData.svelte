@@ -304,13 +304,6 @@
                                 index: ''
                             }
                         }
-                        else if(effect.type === 'runAxLLM'){
-                            value.effect[i] = {
-                                type: 'runAxLLM',
-                                value: '',
-                                inputVar: ''
-                            }
-                        }
                     }}>
                         <OptionInput value="setvar">{language.triggerEffSetVar}</OptionInput>
                         <OptionInput value="impersonate">{language.triggerEffImperson}</OptionInput>
@@ -326,7 +319,6 @@
                         <OptionInput value="runImgGen">{language.runImgGen}</OptionInput>
                         <OptionInput value="cutchat">{language.cutChat}</OptionInput>
                         <OptionInput value="modifychat">{language.modifyChat}</OptionInput>
-                        <OptionInput value="runAxLLM">{language.triggerEffRunAxLLM}</OptionInput>
                     </SelectInput>
                     {#if
                         (value.type !== 'start' && (effect.type === 'systemprompt' || effect.type === 'stop')) ||
@@ -341,8 +333,7 @@
                             effect.type === 'showAlert' ||
                             effect.type === 'sendAIprompt' ||
                             effect.type === 'extractRegex' ||
-                            effect.type === 'runImgGen' ||
-                            effect.type === 'runAxLLM'
+                            effect.type === 'runImgGen'
                         )
                     }
                         <span class="text-red-400 text-sm">{language.triggerLowLevelOnly}</span>
@@ -467,14 +458,6 @@
                         <span class="text-textcolor2 text-sm">{language.value}</span>
                         <TextAreaInput highlight bind:value={effect.value} />
                     
-                    {/if}
-
-                    {#if effect.type === 'runAxLLM'}
-                    <span class="text-textcolor2 text-sm">{language.prompt} <Help key="triggerLLMPrompt" /></span>
-                    <TextAreaInput highlight bind:value={effect.value} />
-
-                    <span class="text-textcolor2 text-sm">{language.resultStoredVar}</span>
-                    <TextInput bind:value={effect.inputVar} />
                     {/if}
                 {/each}
             </div>

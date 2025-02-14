@@ -25,7 +25,7 @@ export interface triggerscript{
 
 export type triggerCondition = triggerConditionsVar|triggerConditionsExists|triggerConditionsChatIndex
 
-export type triggerEffect = triggerCode|triggerEffectCutChat|triggerEffectModifyChat|triggerEffectImgGen|triggerEffectRegex|triggerEffectRunLLM|triggerEffectCheckSimilarity|triggerEffectSendAIprompt|triggerEffectShowAlert|triggerEffectSetvar|triggerEffectSystemPrompt|triggerEffectImpersonate|triggerEffectCommand|triggerEffectStop|triggerEffectRunTrigger|triggerEffectRunAxLLM
+export type triggerEffect = triggerCode|triggerEffectCutChat|triggerEffectModifyChat|triggerEffectImgGen|triggerEffectRegex|triggerEffectRunLLM|triggerEffectCheckSimilarity|triggerEffectSendAIprompt|triggerEffectShowAlert|triggerEffectSetvar|triggerEffectSystemPrompt|triggerEffectImpersonate|triggerEffectCommand|triggerEffectStop|triggerEffectRunTrigger
 
 export type triggerConditionsVar = {
     type:'var'|'value'
@@ -134,12 +134,6 @@ export interface triggerEffectCheckSimilarity{
 
 export interface triggerEffectRunLLM{
     type: 'runLLM',
-    value: string,
-    inputVar: string
-}
-
-export interface triggerEffectRunAxLLM{
-    type: 'runAxLLM',
     value: string,
     inputVar: string
 }
@@ -510,7 +504,6 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
                     setVar(effect.inputVar, res)
                     break
                 }
-
                 case 'triggerlua':{
                     const triggerCodeResult = await runLua(effect.code,{
                         lowLevelAccess: trigger.lowLevelAccess,
@@ -525,33 +518,6 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
                         stopSending = true
                     }
                     chat = getCurrentChat()
-                    break
-                }
-
-                case 'runAxLLM':{
-                    if(!trigger.lowLevelAccess){
-                        break
-                    }
-                    const effectValue = risuChatParser(effect.value,{chara:char})
-                    const varName = effect.inputVar
-                    let promptbody:OpenAIChat[] = parseChatML(effectValue)
-                    if(!promptbody){
-                        promptbody = [{role:'user', content:effectValue}]
-                    }
-                    const result = await requestChatData({
-                        formated: promptbody,
-                        bias: {},
-                        useStreaming: false,
-                        noMultiGen: true,
-                    }, 'otherAx')
-
-                    if(result.type === 'fail' || result.type === 'streaming' || result.type === 'multiline'){
-                        setVar(varName, 'Error: ' + result.result)
-                    }
-                    else{
-                        setVar(varName, result.result)
-                    }
-
                     break
                 }
             }
