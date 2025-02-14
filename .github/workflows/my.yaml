@@ -71,7 +71,9 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-
+      # 手动安装 pnpm
+      - name: Install PNPM globally
+        run: npm install -g pnpm
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -82,6 +84,7 @@ jobs:
       - name: Setup PNPM
         uses: pnpm/action-setup@v2
         with:
+          version: 8
           run_install: false
 
       - name: Clean workspace
