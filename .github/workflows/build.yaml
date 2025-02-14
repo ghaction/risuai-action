@@ -1,11 +1,17 @@
 name: Update Frontend
 
 on:
+  workflow_dispatch:
   push:
-  workflow_dispatch:  # 允许手动触发
-  schedule:
-    - cron: '32 6,12,18 * * *'  # 每天 UTC 时间 0 点自动触发
-
+    branches:
+      - 'main'
+    paths:
+      - 'version'
+      
+concurrency:
+  group: check
+  cancel-in-progress: true
+  
 jobs:
   update-frontend:
     runs-on: ubuntu-latest
@@ -62,3 +68,13 @@ jobs:
         
         # 强制推送更新
         git push -f origin main
+    - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ env.risuai_VERSION }}
+          draft: false
+          prerelease: false
+          tag: ${{ env.CLOUDFLARED_VERSION }}-${{ env.BUILD_ID }}
+          makeLatest: true
+          artifacts: 'risu/*'
