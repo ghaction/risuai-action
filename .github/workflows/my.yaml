@@ -81,12 +81,6 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: '**/pnpm-lock.yaml'
 
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-          run_install: false
-
       - name: Clean workspace
         run: rm -rf risu/ || true
 
