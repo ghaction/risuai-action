@@ -1,0 +1,164 @@
+name: Version Management
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 */6 * * *'
+
+concurrency:
+  group: version-check
+  cancel-in-progress: true
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version-check.outputs.new_version }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Get current version
+        id: current-version
+        run: |
+          if [ -f "version" ]; then
+            echo "current_version=$(cat version)" >> $GITHUB_OUTPUT
+          else
+            echo "current_version=v0.0.0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch latest release
+        id: version-check
+        run: |
+          LATEST=$(curl -sL https://api.github.com/repos/kwaroran/RisuAI/releases/latest | jq -r '.tag_name')
+          CURRENT=${{ steps.current-version.outputs.current_version }}
+          
+          echo "Current version: $CURRENT"
+          echo "Latest version: $LATEST"
+
+          if [ "$CURRENT" != "$LATEST" ]; then
+            echo "New version detected: $LATEST"
+            echo "$LATEST" > version
+            echo "new_version=$LATEST" >> $GITHUB_OUTPUT
+            echo "risuai_VERSION=$LATEST" >> $GITHUB_ENV
+          else
+            echo "Already on latest version"
+            echo "new_version=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit version update
+        if: steps.version-check.outputs.new_version != ''
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "chore: Update to ${{ steps.version-check.outputs.new_version }}"
+          add: 'version'
+          default_author: github_actions
+
+  build-release:
+    name: Build and Release
+    needs: version-check
+    if: needs.version-check.outputs.new_version != ''
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout with version
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Clean workspace
+        run: rm -rf risu/ || true
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: kwaroran/RisuAI
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: risu
+          ref: ${{ needs.version-check.outputs.new_version }}
+
+      - name: Install dependencies
+        working-directory: risu
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        working-directory: risu
+        env:
+          NODE_OPTIONS: --max_old_space_size=4096
+        run: pnpm build
+
+      - name: Clean build artifacts
+        working-directory: risu
+        run: |
+          rm -rf .git
+          rm -rf node_modules
+          rm -rf .github
+          rm -rf .vscode
+          rm -rf .gitignore
+          rm -rf .eslintrc.*
+          rm -rf .prettierrc.*
+          rm -rf *.md
+          rm -rf *.lock
+
+      - name: Commit and push risu directory
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add risu/
+          git add version
+          if git diff-index --quiet HEAD --; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(frontend): Update to ${{ needs.version-check.outputs.new_version }}"
+            git push origin main
+          fi
+
+      - name: Package risu folder
+        run: |
+          cd risu
+          zip -r ../risu-${{ needs.version-check.outputs.new_version }}.zip .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.version-check.outputs.new_version }}
+          name: Release ${{ needs.version-check.outputs.new_version }}
+          body: |
+            ## Release Notes
+            - Version: ${{ needs.version-check.outputs.new_version }}
+            - Build Date: ${{ steps.get-date.outputs.date }}
+            - Changes: [View Changes](https://github.com/kwaroran/RisuAI/compare/${{ steps.current-version.outputs.current_version }}...${{ needs.version-check.outputs.new_version }})
+          prerelease: false
+          files: |
+            risu-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current date
+        id: get-date
+        run: echo "date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Cleanup on failure
+        if: ${{ failure() }}
+        run: |
+          git reset --hard HEAD~1
+          git push -f origin main
