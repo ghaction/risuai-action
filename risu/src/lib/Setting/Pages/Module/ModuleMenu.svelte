@@ -103,7 +103,21 @@
         <span>{language.regexScript}</span>
     </button>
     <button onclick={() => {
-        currentModule.trigger ??= []
+        currentModule.trigger ??= [{
+            comment: "",
+            type: "manual",
+            conditions: [],
+            effect: [{
+                type: "v2Header",
+                code: "",
+                indent: 0
+            }]
+        }, {
+            comment: "New Event",
+            type: 'manual',
+            conditions: [],
+            effect: []
+        }]
         submenu = 3
     }} class="p-2 flex-1 border-r border-darkborderc" class:bg-darkbutton={submenu === 3}>
         <span>{language.triggerScript}</span>
@@ -132,6 +146,8 @@
     <div class="flex items-center mt-4">
         <Check bind:check={currentModule.hideIcon} name={language.hideChatIcon}/>
     </div>
+    <span class="mt-4">{language.customPromptTemplateToggle} <Help key='customPromptTemplateToggle' /></span>
+    <TextAreaInput bind:value={currentModule.customModuleToggle}/>
 {/if}
 {#if submenu === 1 && (Array.isArray(currentModule.lorebook))}
     <div class="border border-selected p-2 flex flex-col rounded-md mt-2">
