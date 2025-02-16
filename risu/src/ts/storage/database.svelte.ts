@@ -12,7 +12,7 @@ import { defaultColorScheme, type ColorScheme } from '../gui/colorscheme';
 import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
-export let appVer = "150.1.0"
+export let appVer = "150.2.0"
 export let webAppSubVer = ''
 
 
@@ -901,6 +901,8 @@ export interface Database{
     inlayErrorResponse:boolean
     reasoningEffort:number
     bulkEnabling:boolean
+    showTranslationLoading: boolean
+    showDeprecatedTriggerV1:boolean
 }
 
 interface SeparateParameters{
