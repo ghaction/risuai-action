@@ -12,7 +12,7 @@ import { defaultColorScheme, type ColorScheme } from '../gui/colorscheme';
 import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
-export let appVer = "150.2.0"
+export let appVer = "150.4.0"
 export let webAppSubVer = ''
 
 
@@ -484,6 +484,11 @@ export function setDatabase(data:Database){
         doNotSummarizeUserMessage: data.hypaV3Settings?.doNotSummarizeUserMessage ?? false
     }
     data.returnCSSError ??= true
+    data.useExperimentalGoogleTranslator ??= false
+    if(data.antiClaudeOverload){ //migration
+        data.antiClaudeOverload = false
+        data.antiServerOverloads = true
+    }
     changeLanguage(data.language)
     setDatabaseLite(data)
 }
@@ -905,6 +910,9 @@ export interface Database{
     showTranslationLoading: boolean
     showDeprecatedTriggerV1:boolean
     returnCSSError:boolean
+    useExperimentalGoogleTranslator:boolean
+    thinkingTokens: number
+    antiServerOverloads: boolean
 }
 
 interface SeparateParameters{
@@ -917,6 +925,7 @@ interface SeparateParameters{
     frequency_penalty?:number
     presence_penalty?:number
     reasoning_effort?:number
+    thinking_tokens?:number
 }
 
 export interface customscript{
@@ -1230,6 +1239,7 @@ export interface botPreset{
     image?:string
     regex?:customscript[]
     reasonEffort?:number
+    thinkingTokens?:number
 }
 
 
@@ -1536,6 +1546,7 @@ export function saveCurrentPreset(){
         regex: db.presetRegex,
         image: pres?.[db.botPresetsId]?.image ?? '',
         reasonEffort: db.reasoningEffort ?? 0,
+        thinkingTokens: db.thinkingTokens ?? null,
     }
     db.botPresets = pres
     setDatabase(db)
@@ -1646,6 +1657,7 @@ export function setPreset(db:Database, newPres: botPreset){
     db.enableCustomFlags = newPres.enableCustomFlags ?? false
     db.presetRegex = newPres.regex ?? []
     db.reasoningEffort = newPres.reasonEffort ?? 0
+    db.thinkingTokens = newPres.thinkingTokens ?? null
     return db
 }
 
