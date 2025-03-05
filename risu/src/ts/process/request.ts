@@ -2705,18 +2705,17 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
         const host = AMZ_HOST.replace("%REGION%", region);
         const stream = false;   // todo?
         
-        const awsModel = "us." + arg.modelInfo.internalID;
+        const awsModel = !arg.modelInfo.internalID.includes("claude-v2") ? "us." + arg.modelInfo.internalID : arg.modelInfo.internalID;
         const url = `https://${host}/model/${awsModel}/invoke${stream ? "-with-response-stream" : ""}`
 
-        const params = {
-            messages : claudeChat,
-            system: systemPrompt.trim(),
-            max_tokens: maxTokens,
-            // stop_sequences: null,
-            temperature: arg.temperature,
-            top_p: db.top_p,
-            top_k: db.top_k,
-            anthropic_version: "bedrock-2023-05-31",
+        let params = {...body}
+        params.anthropic_version = "bedrock-2023-05-31"
+        delete params.model
+        delete params.stream
+        if (params.thinking?.type === "enabled"){
+            params.temperature = 1.0
+            delete params.top_k
+            delete params.top_p
         }
 
         const rq = new HttpRequest({
@@ -2761,10 +2760,49 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                 result: JSON.stringify(res.data.error)
             }
         }
+        const contents = res?.data?.content
+        if(!contents || contents.length === 0){
+            return {
+                type: 'fail',
+                result: JSON.stringify(res.data)
+            }
+        }
+        let resText = ''
+        let thinking = false
+        for(const content of contents){
+            if(content.type === 'text'){
+                if(thinking){
+                    resText += "</Thoughts>\n\n"
+                    thinking = false
+                }
+                resText += content.text
+            }
+            if(content.type === 'thinking'){
+                if(!thinking){
+                    resText += "<Thoughts>\n"
+                    thinking = true
+                }
+                resText += content.thinking ?? ''
+            }
+            if(content.type === 'redacted_thinking'){
+                if(!thinking){
+                    resText += "<Thoughts>\n"
+                    thinking = true
+                }
+                resText += '\n{{redacted_thinking}}\n'
+            }
+        }
+    
+    
+        if(arg.extractJson && db.jsonSchemaEnabled){
+            return {
+                type: 'success',
+                result: extractJSON(resText, db.jsonSchema)
+            }
+        }
         return {
             type: 'success',
-            result: res.data.content[0].text
-        
+            result: resText
         }
     }
 
@@ -2831,9 +2869,6 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                                     thinking = false
                                 }
                                 text += parsedData.delta?.text ?? ''
-                                controller.enqueue({
-                                    "0": text
-                                })
                             }
     
                             if(parsedData?.delta?.type === 'thinking' || parsedData.delta?.type === 'thinking_delta'){
@@ -2842,9 +2877,6 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                                     thinking = true
                                 }
                                 text += parsedData.delta?.thinking ?? ''
-                                controller.enqueue({
-                                    "0": text
-                                })
                             }
     
                             if(parsedData?.delta?.type === 'redacted_thinking'){
@@ -2853,9 +2885,6 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                                     thinking = true
                                 }
                                 text += '\n{{redacted_thinking}}\n'
-                                controller.enqueue({
-                                    "0": text
-                                })
                             }
                         }
 
@@ -2870,16 +2899,6 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                                 return 'overload'
                             }
                             text += "Error:" + parsedData?.error?.message
-                            if(arg.extractJson && (db.jsonSchemaEnabled || arg.schema)){
-                                controller.enqueue({
-                                    "0": extractJSON(text, db.jsonSchema)
-                                })
-                            }
-                            else{
-                                controller.enqueue({
-                                    "0": text
-                                })
-                            }
 
                         }
                         
@@ -2891,6 +2910,8 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                         
                 })
                 let breakWhile = false
+                let i = 0;
+                let prevText = ''
                 while(true){
                     try {
                         if(arg?.abortSignal?.aborted || breakWhile){
@@ -2902,11 +2923,14 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                         }
                         parserData += (decoder.decode(value))
                         let parts = parserData.split('\n')
-                        for(let i=0;i<parts.length-1;i++){
-                            if(parts[i].startsWith('data: ')){
+                        for(;i<parts.length-1;i++){
+                            prevText = text
+                            if(parts?.[i]?.startsWith('data: ')){
                                 const d = await parseEvent(parts[i].slice(6))
                                 if(d === 'overload'){
                                     parserData = ''
+                                    prevText = ''
+                                    text = ''
                                     reader.cancel()
                                     const res = await fetchNative(replacerURL, {
                                         body: JSON.stringify(body),
@@ -2928,6 +2952,12 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                                 }
                             }
                         }
+                        i--;
+                        text = prevText
+
+                        controller.enqueue({
+                            "0": text
+                        })
 
                     } catch (error) {
                         await sleep(1)
