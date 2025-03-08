@@ -765,7 +765,7 @@ export const languageKorean = {
     "importFromRealmDesc": "여러 캐릭터들이 공유된 RisuRealm에서 캐릭터를 고르세요.",
     "random": "랜덤",
     "metaData": "메타데이터",
-    "autoContinueMinTokens": "타켓 토큰 (자동 컨티뉴)",
+    "autoContinueMinTokens": "타겟 토큰 (자동 컨티뉴)",
     "autoContinueChat": "불완전 문단 방지 (자동 컨티뉴)",
     "removeIncompleteResponse": "불완전 문단 제거",
     "tokenizer": "토크나이저",
@@ -893,7 +893,7 @@ export const languageKorean = {
     "translatorNote": "번역가의 노트",
     "formatGroupInSingle": "그룹을 하나로 포맷",
     "groupInnerFormat": "비화자 내부 포맷",
-    "groupOtherBotRole": "그룹 내 비화좌 역할",
+    "groupOtherBotRole": "그룹 내 비화자 역할",
     "defineCustomGUI": "커스텀 GUI 정의",
     "chatHTML": "채팅 HTML",
     "logShare": "공유 로그 버튼 보이기",
@@ -979,5 +979,7 @@ export const languageKorean = {
     "paste": "붙여넣기",
     "depth": "깊이",
     "alwaysActiveInChat": "언제나 활성화 (현재 챗)",
-    "childLoreDesc": "이것은 캐릭터 로어의 복사본이며, 삭제하거나 원본 로어에서 직접 비활성화하기 전에는 '언제나 활성화' 상태로 유지됩니다."
+    "childLoreDesc": "이것은 캐릭터 로어의 복사본이며, 삭제하거나 원본 로어에서 직접 비활성화하기 전에는 '언제나 활성화' 상태로 유지됩니다.",
+    "cachePoint": "캐시 포인트",
+    "all": "모두",
 }

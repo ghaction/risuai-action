@@ -35,7 +35,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { listen } from '@tauri-apps/api/event'
 import { registerPlugin } from '@capacitor/core';
 import { language } from "src/lang";
-import { startObserveDom } from "./observer";
+import { startObserveDom } from "./observer.svelte";
 import { updateGuisize } from "./gui/guisize";
 import { encodeCapKeySafe } from "./storage/mobileStorage";
 import { updateLorebooks } from "./characters";
@@ -514,6 +514,8 @@ export async function loadData() {
                 try {
                     LoadingStatusState.text = "Reading Save File..."
                     const readed = await readFile('database/database.bin',{baseDir: BaseDirectory.AppData})
+                    LoadingStatusState.text = "Cleaning Unnecessary Files..."
+                    getDbBackups() //this also cleans the backups
                     LoadingStatusState.text = "Decoding Save File..."
                     const decoded = await decodeRisuSave(readed)
                     setDatabase(decoded)
@@ -630,7 +632,9 @@ export async function loadData() {
             LoadingStatusState.text = "Checking Unnecessary Files..."
             try {
                 await pargeChunks()
-            } catch (error) {}
+            } catch (error) {
+                console.error(error)
+            }
             LoadingStatusState.text = "Loading Plugins..."
             try {
                 await loadPlugins()            
@@ -1373,12 +1377,19 @@ async function pargeChunks(){
     const unpargeable = getUnpargeables(db)
     if(isTauri){
         const assets = await readDir('assets', {baseDir: BaseDirectory.AppData})
+        console.log(assets)
         for(const asset of assets){
-            const n = getBasename(asset.name)
-            if(unpargeable.includes(n)){
-            }
-            else{
-                await remove(asset.name, {baseDir: BaseDirectory.AppData})
+            try {
+                const n = getBasename(asset.name)
+                if(unpargeable.includes(n)){
+                    console.log('unpargeable', n)
+                }
+                else{
+                    console.log('pargeable', n)
+                    await remove('assets/' + asset.name, {baseDir: BaseDirectory.AppData})
+                }
+            } catch (error) {
+                console.log('error', asset.name)
             }
         }
     }
