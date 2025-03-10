@@ -5,9 +5,9 @@
     import CheckInput from "../UI/GUI/CheckInput.svelte";
     import { language } from "src/lang";
     import type { character, groupChat } from "src/ts/storage/database.svelte";
-  import SelectInput from "../UI/GUI/SelectInput.svelte";
-  import OptionInput from "../UI/GUI/OptionInput.svelte";
-  import TextInput from "../UI/GUI/TextInput.svelte";
+    import SelectInput from "../UI/GUI/SelectInput.svelte";
+    import OptionInput from "../UI/GUI/OptionInput.svelte";
+    import TextInput from "../UI/GUI/TextInput.svelte";
 
     interface Props {
         chara?: character|groupChat
@@ -23,19 +23,19 @@
 {#snippet toggles(reverse: boolean = false)}
     {#each parsedKv as toggle}
         {#if toggle.type === 'select'}
-            <div class="flex mt-2 items-center">
-                <span class="mr-2">{toggle.value}</span>
+            <div class="flex gap-2 mt-2 items-center" class:flex-row-reverse={!reverse} class:justify-end={!reverse}>
+                <span>{toggle.value}</span>
 
-                <SelectInput bind:value={DBState.db.globalChatVariables[`toggle_${toggle.key}`]}>
+                <SelectInput className="w-32" bind:value={DBState.db.globalChatVariables[`toggle_${toggle.key}`]}>
                     {#each toggle.options as option, i}
                         <OptionInput value={i.toString()}>{option}</OptionInput>
                     {/each}
                 </SelectInput>
             </div>
         {:else if toggle.type === 'text'}
-            <div class="flex mt-2 items-center">
-                <span class="mr-2">{toggle.value}</span>
-                <TextInput bind:value={DBState.db.globalChatVariables[`toggle_${toggle.key}`]} />
+            <div class="flex gap-2 mt-2 items-center" class:flex-row-reverse={!reverse} class:justify-end={!reverse}>
+                <span>{toggle.value}</span>
+                <TextInput className="w-32" bind:value={DBState.db.globalChatVariables[`toggle_${toggle.key}`]} />
             </div>
         {:else}
             <div class="flex mt-2 items-center">
