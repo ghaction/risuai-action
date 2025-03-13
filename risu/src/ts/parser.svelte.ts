@@ -495,14 +495,14 @@ function trimmer(str:string){
 }
 
 async function parseInlayAssets(data:string){
-    const inlayMatch = data.match(/{{(inlay|inlayed)::(.+?)}}/g)
+    const inlayMatch = data.match(/{{(inlay|inlayed|inlayeddata)::(.+?)}}/g)
     if(inlayMatch){
         for(const inlay of inlayMatch){
             const inlayType = inlay.startsWith('{{inlayed') ? 'inlayed' : 'inlay'
             const id = inlay.substring(inlay.indexOf('::') + 2, inlay.length - 2)
             const asset = await getInlayAsset(id)
-            let prefix = inlayType === 'inlayed' ? `<div class="risu-inlay-image">` : ''
-            let postfix = inlayType === 'inlayed' ? `</div>\n\n` : ''
+            let prefix = inlayType !== 'inlay' ? `<div class="risu-inlay-image">` : ''
+            let postfix = inlayType !== 'inlay' ? `</div>\n\n` : ''
             switch(asset?.type){
                 case 'image':
                     data = data.replace(inlay, `${prefix}<img src="${asset.data}"/>${postfix}`)
@@ -1543,6 +1543,17 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                         }
                     }
                     return '0'
+                }
+                case 'module_assetlist':{
+                    const module = getModules()?.find((f) => {
+                        return f.namespace === arra[1]
+                    })
+                    if(!module){
+                        return ''
+                    }
+                    return makeArray(module.assets?.map((f) => {
+                        return f[0]
+                    }))
                 }
                 case 'filter':{
                     const array = parseArray(arra[1])
