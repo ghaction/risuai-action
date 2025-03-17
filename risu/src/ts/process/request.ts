@@ -43,6 +43,7 @@ interface requestDataArgument{
     schema?:string
     extractJson?:string
     imageResponse?:boolean
+    previewBody?:boolean
 }
 
 interface RequestDataArgumentExtended extends requestDataArgument{
@@ -485,6 +486,13 @@ export async function requestChatDataMain(arg:requestDataArgument, model:ModelMo
         targ.customURL = db.forceReplaceUrl
     }
 
+    if(db.seperateModelsForAxModels){
+        if(db.seperateModels[model]){
+            targ.aiModel = db.seperateModels[model]
+            targ.modelInfo = getModelInfo(targ.aiModel)
+        }
+    }
+
     const format = targ.modelInfo.format
 
     targ.formated = reformater(targ.formated, targ.modelInfo)
@@ -726,8 +734,8 @@ async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDat
                 }
             }
         }
-    
-        const res = await globalFetch(arg.customURL ?? "https://api.mistral.ai/v1/chat/completions", {
+
+        const targs = {
             body: applyParameters({
                 model: requestModel,
                 messages: reformatedChat,
@@ -739,7 +747,20 @@ async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDat
             },
             abortSignal: arg.abortSignal,
             chatId: arg.chatId
-        })
+        } as const
+
+        if(arg.previewBody){
+            return {
+                type: 'success',
+                result: JSON.stringify({
+                    url: "https://api.mistral.ai/v1/chat/completions",
+                    body: targs.body,
+                    headers: targs.headers
+                })
+            }
+        }
+    
+        const res = await globalFetch(arg.customURL ?? "https://api.mistral.ai/v1/chat/completions", targs)
 
         const dat = res.data as any
         if(res.ok){
@@ -959,6 +980,17 @@ async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDat
                 }
             }
         }
+
+        if(arg.previewBody){
+            return {
+                type: 'success',
+                result: JSON.stringify({
+                    url: replacerURL,
+                    body: body,
+                    headers: headers
+                })
+            }
+        }
         const da = await fetchNative(replacerURL, {
             body: JSON.stringify(body),
             method: "POST",
@@ -1140,6 +1172,17 @@ async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDat
         }
     }
 
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: replacerURL,
+                body: body,
+                headers: headers
+            })
+        }
+    }
+
     const res = await globalFetch(replacerURL, {
         body: body,
         headers: headers,
@@ -1278,6 +1321,15 @@ async function requestOpenAILegacyInstruct(arg:RequestDataArgumentExtended):Prom
         //return `\n\n${author}: ${m.content.trim()}`;
     }).join("") + `\n## Response\n`;
 
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                error: "This model is not supported in preview mode"
+            })
+        }
+    }
+
     const response = await globalFetch(arg.customURL ?? "https://api.openai.com/v1/completions", {
         body: {
             model: "gpt-3.5-turbo-instruct",
@@ -1323,6 +1375,15 @@ async function requestNovelAI(arg:RequestDataArgumentExtended):Promise<requestDa
     let logit_bias_exp:{
         sequence: number[], bias: number, ensure_sequence_finish: false, generate_once: true
     }[] = []
+
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                error: "This model is not supported in preview mode"
+            })
+        }
+    }
 
     for(let i=0;i<biasString.length;i++){
         const bia = biasString[i]
@@ -1426,6 +1487,7 @@ async function requestOobaLegacy(arg:RequestDataArgumentExtended):Promise<reques
             return risuChatParser(v.replace(/\\n/g, "\n"))
         })
     }
+
     bodyTemplate = {
         'max_new_tokens': db.maxResponse,
         'do_sample': db.ooba.do_sample,
@@ -1452,6 +1514,17 @@ async function requestOobaLegacy(arg:RequestDataArgumentExtended):Promise<reques
 
     const headers = (aiModel === 'textgen_webui') ? {} : {
         'X-API-KEY': db.mancerHeader
+    }
+
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: blockingUrl,
+                body: bodyTemplate,
+                headers: headers
+            })      
+        }
     }
 
     if(useStreaming){
@@ -1572,6 +1645,17 @@ async function requestOoba(arg:RequestDataArgumentExtended):Promise<requestDataR
         }
     }
 
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: urlStr,
+                body: bodyTemplate,
+                headers: {}
+            })      
+        }
+    }
+
     const response = await globalFetch(urlStr, {
         body: bodyTemplate,
         chatId: arg.chatId
@@ -1606,7 +1690,7 @@ async function requestPlugin(arg:RequestDataArgumentExtended):Promise<requestDat
             max_tokens: maxTokens,
         }, [
             'frequency_penalty','min_p','presence_penalty','repetition_penalty','top_k','top_p','temperature'
-        ], {}, arg.mode) as any)) : await pluginProcess({
+        ], {}, arg.mode) as any, arg.abortSignal)) : await pluginProcess({
             bias: bias,
             prompt_chat: formated,
             temperature: (db.temperature / 100),
@@ -2037,6 +2121,17 @@ async function requestGoogleCloudVertex(arg:RequestDataArgumentExtended):Promise
 
     if(arg.modelInfo.format === LLMFormat.GoogleCloud && arg.useStreaming){
         headers['Content-Type'] = 'application/json'
+
+        if(arg.previewBody){
+            return {
+                type: 'success',
+                result: JSON.stringify({
+                    url: url,
+                    body: body,
+                    headers: headers
+                })      
+            }
+        }
         const f = await fetchNative(url, {
             headers: headers,
             body: JSON.stringify(body),
@@ -2124,6 +2219,17 @@ async function requestGoogleCloudVertex(arg:RequestDataArgumentExtended):Promise
         return {
             type: 'streaming',
             result: f.body.pipeThrough(stream)
+        }
+    }
+
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: url,
+                body: body,
+                headers: headers
+            })      
         }
     }
 
@@ -2245,6 +2351,17 @@ async function requestKobold(arg:RequestDataArgumentExtended):Promise<requestDat
     ], {
         'repetition_penalty': 'rep_pen'
     }, arg.mode) as KoboldGenerationInputSchema
+
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: url.toString(),
+                body: body,
+                headers: {}
+            })      
+        }
+    }
     
     const da = await globalFetch(url.toString(), {
         method: "POST",
@@ -2311,6 +2428,18 @@ async function requestNovelList(arg:RequestDataArgumentExtended):Promise<request
         logit_bias: (logit_bias.length > 0) ? logit_bias.join("<<|>>") : undefined,
         logit_bias_values: (logit_bias_values.length > 0) ? logit_bias_values.join("|") : undefined,
     };
+
+
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: api_server_url + '/api',
+                body: send_body,
+                headers: headers
+            })      
+        }
+    }
     const response = await globalFetch(arg.customURL ?? api_server_url + '/api', {
         method: 'POST',
         headers: headers,
@@ -2343,6 +2472,15 @@ async function requestNovelList(arg:RequestDataArgumentExtended):Promise<request
 async function requestOllama(arg:RequestDataArgumentExtended):Promise<requestDataResponse> {
     const formated = arg.formated
     const db = getDatabase()
+
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                error: "Preview body is not supported for Ollama"
+            })
+        }
+    }
 
     const ollama = new Ollama({host: db.ollamaURL})
 
@@ -2458,6 +2596,20 @@ async function requestCohere(arg:RequestDataArgumentExtended):Promise<requestDat
 
     console.log(body)
 
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: arg.customURL ?? 'https://api.cohere.com/v1/chat',
+                body: body,
+                headers: {
+                    "Authorization": "Bearer " + db.cohereAPIKey,
+                    "Content-Type": "application/json"
+                }
+            })
+        }
+    }
+
     const res = await globalFetch(arg.customURL ?? 'https://api.cohere.com/v1/chat', {
         method: "POST",
         headers: {
@@ -2553,7 +2705,7 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
         if(claudeChat.length > 0 && claudeChat[claudeChat.length-1].role === chat.role){
             let content = claudeChat[claudeChat.length-1].content
             if(multimodals && multimodals.length > 0 && !Array.isArray(content)){
-                content = [{
+                content = [{    
                     type: 'text',
                     text: content
                 }]
@@ -2730,6 +2882,9 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
     else if(body?.thinking?.budget_tokens && body?.thinking?.budget_tokens > 0){
         body.thinking.type = 'enabled'
     }
+    else if(body?.thinking?.budget_tokens === null){
+        delete body.thinking
+    }
 
     if(systemPrompt === ''){
         delete body.system
@@ -2787,6 +2942,18 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
         });
         
         const signed = await signer.sign(rq);
+
+        if(arg.previewBody){
+            return {
+                type: 'success',
+                result: JSON.stringify({
+                    url: url,
+                    body: params,
+                    headers: signed.headers
+                })
+            }
+
+        }
 
         const res = await globalFetch(url, {
             method: "POST",
@@ -2878,6 +3045,18 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
         headers['anthropic-dangerous-direct-browser-access'] = 'true'
     }
 
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                url: replacerURL,
+                body: body,
+                headers: headers
+            })
+        }
+    }
+
+    
     
     if(db.claudeRetrivalCaching){
         registerClaudeObserver({
@@ -3105,6 +3284,15 @@ async function requestHorde(arg:RequestDataArgumentExtended):Promise<requestData
     const currentChar = getCurrentCharacter()
     const abortSignal = arg.abortSignal
 
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                error: "Preview body is not supported for Horde"
+            })
+        }
+    }
+
     const prompt = applyChatTemplate(formated)
 
     const realModel = aiModel.split(":::")[1]
@@ -3203,6 +3391,15 @@ async function requestWebLLM(arg:RequestDataArgumentExtended):Promise<requestDat
     const temperature = arg.temperature
     const realModel = aiModel.split(":::")[1]
     const prompt = applyChatTemplate(formated)
+
+    if(arg.previewBody){
+        return {
+            type: 'success',
+            result: JSON.stringify({
+                error: "Preview body is not supported for WebLLM"
+            })
+        }
+    }
     const v = await runTransformers(prompt, realModel, {
         temperature: temperature,
         max_new_tokens: maxTokens,
