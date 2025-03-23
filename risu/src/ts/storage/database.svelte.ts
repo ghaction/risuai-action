@@ -12,7 +12,7 @@ import { defaultColorScheme, type ColorScheme } from '../gui/colorscheme';
 import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
-export let appVer = "157.0.0"
+export let appVer = "157.0.1"
 export let webAppSubVer = ''
 
 
@@ -504,6 +504,13 @@ export function setDatabase(data:Database){
         translate: [],
         otherAx: [],
         model: []
+    }
+    data.fallbackModels = {
+        model: data.fallbackModels.model.filter((v) => v !== ''),
+        memory: data.fallbackModels.memory.filter((v) => v !== ''),
+        emotion: data.fallbackModels.emotion.filter((v) => v !== ''),
+        translate: data.fallbackModels.translate.filter((v) => v !== ''),
+        otherAx: data.fallbackModels.otherAx.filter((v) => v !== '')
     }
     changeLanguage(data.language)
     setDatabaseLite(data)
