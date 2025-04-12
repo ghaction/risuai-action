@@ -12,7 +12,7 @@ import { defaultColorScheme, type ColorScheme } from '../gui/colorscheme';
 import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 
-export let appVer = "158.2.0"
+export let appVer = "158.2.1"
 export let webAppSubVer = ''
 
 
@@ -694,6 +694,7 @@ export interface Database{
     }
     globalscript: customscript[],
     sendWithEnter:boolean
+    fixedChatTextarea:boolean
     clickToEdit: boolean
     koboldURL:string
     advancedBotSettings:boolean
@@ -980,6 +981,7 @@ export interface Database{
         params: string
         flags: LLMFlags[]
     }[]
+    igpPrompt:string
 }
 
 interface SeparateParameters{
