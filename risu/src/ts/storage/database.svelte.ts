@@ -11,8 +11,9 @@ import { prebuiltNAIpresets, prebuiltPresets } from '../process/templates/templa
 import { defaultColorScheme, type ColorScheme } from '../gui/colorscheme';
 import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
+import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../process/memory/hypav3'
 
-export let appVer = "158.2.1"
+export let appVer = "160.0.1"
 export let webAppSubVer = ''
 
 
@@ -255,8 +256,10 @@ export function setDatabase(data:Database){
             width:512,
             height:768,
             sampler:"k_dpmpp_sde",
+            noise_schedule:"native",
             steps:28,
             scale:5,
+            cfg_rescale: 0,
             sm:true,
             sm_dyn:false,
             noise:0.0,
@@ -264,8 +267,51 @@ export function setDatabase(data:Database){
             image:"",
             refimage:"",
             InfoExtracted:1,
-            RefStrength:0.4
+            RefStrength:0.4,
+            //add 4
+            autoSmea:false,
+            legacy_uc:false,
+            use_coords:false,
+            v4_prompt:{
+                caption:{
+                    base_caption:'',
+                    char_captions:[]
+                },
+                use_coords:false,
+                use_order:true
+            },
+            v4_negative_prompt:{
+                caption:{
+                    base_caption:'',
+                    char_captions:[]
+                },
+                legacy_uc:false,
+            }
         }
+    }
+    //add NAI v4 (사용중인 사람용 추가 DB Init)
+    if(checkNullish(data.NAIImgConfig.v4_prompt)){
+        data.NAIImgConfig.autoSmea = false;
+        data.NAIImgConfig.use_coords = false;
+        data.NAIImgConfig.legacy_uc = false;
+        data.NAIImgConfig.v4_prompt = {
+            caption:{
+                base_caption:"",
+                char_captions:[]
+            },
+            use_coords:false,
+            use_order:true
+        };
+        data.NAIImgConfig.v4_negative_prompt = {
+            caption:{
+                base_caption:"",
+                char_captions:[]
+            },
+            legacy_uc:false,
+        };
+    }
+    if(checkNullish(data.NAIImgConfig.cfg_rescale)){
+        data.NAIImgConfig.cfg_rescale = 0;
     }
     if(checkNullish(data.customTextTheme)){
         data.customTextTheme = {
@@ -473,17 +519,21 @@ export function setDatabase(data:Database){
     data.checkCorruption ??= true
     data.OaiCompAPIKeys ??= {}
     data.reasoningEffort ??= 0
-    data.hypaV3Settings = {
-        memoryTokensRatio: data.hypaV3Settings?.memoryTokensRatio ?? 0.2,
-        extraSummarizationRatio: data.hypaV3Settings?.extraSummarizationRatio ?? 0,
-        maxChatsPerSummary: data.hypaV3Settings?.maxChatsPerSummary ?? 4,
-        recentMemoryRatio: data.hypaV3Settings?.recentMemoryRatio ?? 0.4,
-        similarMemoryRatio: data.hypaV3Settings?.similarMemoryRatio ?? 0.4,
-        enableSimilarityCorrection: data.hypaV3Settings?.enableSimilarityCorrection ?? false,
-        preserveOrphanedMemory: data.hypaV3Settings?.preserveOrphanedMemory ?? false,
-        processRegexScript: data.hypaV3Settings?.processRegexScript ?? false,
-        doNotSummarizeUserMessage: data.hypaV3Settings?.doNotSummarizeUserMessage ?? false
+    data.hypaV3Presets ??= [
+        createHypaV3Preset("Default", {
+            summarizationPrompt: data.supaMemoryPrompt ? data.supaMemoryPrompt : "",
+            ...data.hypaV3Settings
+        })
+    ]
+    if (data.hypaV3Presets.length > 0) {
+        data.hypaV3Presets = data.hypaV3Presets.map((preset, i) =>
+            createHypaV3Preset(
+                preset.name || `Preset ${i + 1}`,
+                preset.settings || {}
+            )
+        )
     }
+    data.hypaV3PresetId ??= 0
     data.returnCSSError ??= true
     data.useExperimentalGoogleTranslator ??= false
     if(data.antiClaudeOverload){ //migration
@@ -493,7 +543,7 @@ export function setDatabase(data:Database){
     data.hypaCustomSettings = {
         url: data.hypaCustomSettings?.url ?? "",
         key: data.hypaCustomSettings?.key ?? "",
-        model: data.hypaCustomSettings?.model ?? "",       
+        model: data.hypaCustomSettings?.model ?? ""     
     }
     data.doNotChangeSeperateModels ??= false
     data.modelTools ??= []
@@ -918,17 +968,9 @@ export interface Database{
     showPromptComparison:boolean
     checkCorruption:boolean
     hypaV3:boolean
-    hypaV3Settings: {
-        memoryTokensRatio: number
-        extraSummarizationRatio: number
-        maxChatsPerSummary: number
-        recentMemoryRatio: number
-        similarMemoryRatio: number
-        enableSimilarityCorrection: boolean
-        preserveOrphanedMemory: boolean
-        processRegexScript: boolean
-        doNotSummarizeUserMessage: boolean
-    }
+    hypaV3Settings: HypaV3Settings // legacy
+    hypaV3Presets: HypaV3Preset[]
+    hypaV3PresetId: number
     OaiCompAPIKeys: {[key:string]:string}
     inlayErrorResponse:boolean
     reasoningEffort:number
@@ -982,6 +1024,10 @@ export interface Database{
         flags: LLMFlags[]
     }[]
     igpPrompt:string
+    useTokenizerCaching:boolean
+    showMenuHypaMemoryModal:boolean
+    promptInfoInsideChat:boolean
+    promptTextInfoInsideChat:boolean
 }
 
 interface SeparateParameters{
@@ -1121,7 +1167,7 @@ export interface character{
         },
         chunk_length:number,
         normalize:boolean,
-        
+
     }
     supaMemory?:boolean
     additionalAssets?:[string, string, string][]
@@ -1363,12 +1409,14 @@ interface sdConfig{
     hr_upscaler:string
 }
 
-interface NAIImgConfig{
+export interface NAIImgConfig{
     width:number,
     height:number,
     sampler:string,
+    noise_schedule:string,
     steps:number,
     scale:number,
+    cfg_rescale:number,
     sm:boolean,
     sm_dyn:boolean,
     noise:number,
@@ -1377,6 +1425,72 @@ interface NAIImgConfig{
     refimage:string,
     InfoExtracted:number,
     RefStrength:number
+    //add 4
+    autoSmea:boolean,
+    use_coords:boolean,
+    legacy_uc: boolean,
+    v4_prompt:NAIImgConfigV4Prompt,
+    v4_negative_prompt:NAIImgConfigV4NegativePrompt,
+    //add vibe
+    reference_image_multiple?:string[],
+    reference_strength_multiple?:number[],
+    vibe_data?:NAIVibeData,
+    vibe_model_selection?:string
+}
+
+//add 4
+interface NAIImgConfigV4Prompt{
+    caption: NAIImgConfigV4Caption,
+    use_coords: boolean,
+    use_order: boolean
+}
+//add 4
+interface NAIImgConfigV4NegativePrompt{
+    caption: NAIImgConfigV4Caption,
+    legacy_uc: boolean
+}
+//add 4
+interface NAIImgConfigV4Caption{
+    base_caption: string,
+    char_captions: NAIImgConfigV4CharCaption[]
+}
+//add 4
+interface NAIImgConfigV4CharCaption{
+    char_caption: string,
+    centers:
+        {
+            x: number,
+            y: number
+        }[]
+}
+
+// NAI Vibe Data interfaces
+interface NAIVibeData {
+    identifier: string;
+    version: number;
+    type: string;
+    image: string;
+    id: string;
+    encodings: {
+        [key: string]: {
+            [key: string]: NAIVibeEncoding;
+        }
+    };
+    name: string;
+    thumbnail: string;
+    createdAt: number;
+    importInfo: {
+        model: string;
+        information_extracted: number;
+        strength: number;
+    };
+}
+
+interface NAIVibeEncoding {
+    encoding: string;
+    params: {
+        information_extracted: number;
+    };
 }
 
 interface ComfyConfig{
@@ -1425,6 +1539,7 @@ export interface Message{
     chatId?:string
     time?: number
     generationInfo?: MessageGenerationInfo
+    promptInfo?: MessagePresetInfo
     name?:string
     otherUser?:boolean
 }
@@ -1435,6 +1550,12 @@ export interface MessageGenerationInfo{
     inputTokens?: number
     outputTokens?: number
     maxContext?: number
+}
+
+export interface MessagePresetInfo{
+    promptName?: string,
+    promptToggles?: {key: string, value: string}[],
+    promptText?: OpenAIChat[],
 }
 
 interface AINsettings{
@@ -1803,6 +1924,7 @@ import type { Parameter } from '../process/request';
 import type { HypaModel } from '../process/memory/hypamemory';
 import type { SerializableHypaV3Data } from '../process/memory/hypav3';
 import { defaultHotkeys, type Hotkey } from '../defaulthotkeys';
+import type { OpenAIChat } from '../process/index.svelte';
 
 export async function downloadPreset(id:number, type:'json'|'risupreset'|'return' = 'json'){
     saveCurrentPreset()
@@ -1991,7 +2113,7 @@ export async function importPreset(f:{
             }
             else{
                 console.log("Prompt not found", prompt)
-            
+
             }
         }
         if(pre?.assistant_prefill){

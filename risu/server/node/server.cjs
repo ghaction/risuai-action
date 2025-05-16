@@ -11,6 +11,7 @@ app.use(express.raw({ type: 'application/octet-stream', limit: '50mb' }));
 const {pipeline} = require('stream/promises')
 const https = require('https');
 const sslPath = path.join(process.cwd(), 'server/node/ssl/certificate');
+const hubURL = 'https://sv.risuai.xyz'; 
 
 let password = ''
 
@@ -29,12 +30,17 @@ function isHex(str) {
 }
 
 app.get('/', async (req, res, next) => {
-    console.log("connected")
+
+    const clientIP = req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress || 'Unknown IP';
+    const timestamp = new Date().toISOString();
+    console.log(`[Server] ${timestamp} | Connection from: ${clientIP}`);
+    
     try {
         const mainIndex = await fs.readFile(path.join(process.cwd(), 'dist', 'index.html'))
         const root = htmlparser.parse(mainIndex)
         const head = root.querySelector('head')
         head.innerHTML = `<script>globalThis.__NODE__ = true</script>` + head.innerHTML
+        
         res.send(root.toString())
     } catch (error) {
         console.log(error)
@@ -137,11 +143,69 @@ const reverseProxyFunc_get = async (req, res, next) => {
     }
 }
 
+async function hubProxyFunc(req, res) {
+
+    try {
+        const pathAndQuery = req.originalUrl.replace(/^\/hub-proxy/, '');
+        const externalURL = hubURL + pathAndQuery;
+        
+        const headersToSend = { ...req.headers };
+        delete headersToSend.host;
+        delete headersToSend.connection;
+        
+        const response = await fetch(externalURL, {
+            method: req.method,
+            headers: headersToSend,
+            body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined,
+            redirect: 'manual',
+            duplex: 'half'
+        });
+        
+        for (const [key, value] of response.headers.entries()) {
+            res.setHeader(key, value);
+        }
+        res.status(response.status);
+        
+        if (response.status >= 300 && response.status < 400) {
+            // Redirect handling (due to ‘/redirect/docs/lua’)
+            const redirectUrl = response.headers.get('location');
+            if (redirectUrl) {
+                
+                if (redirectUrl.startsWith('http')) {
+                    
+                    if (redirectUrl.startsWith(hubURL)) {
+                        const newPath = redirectUrl.replace(hubURL, '/hub-proxy');
+                        res.setHeader('location', newPath);
+                    }
+                    
+                } else if (redirectUrl.startsWith('/')) {
+                    
+                    res.setHeader('location', `/hub-proxy${redirectUrl}`);
+                }
+            }
+
+            return res.end();
+        }
+        
+        await pipeline(response.body, res);
+        
+    } catch (error) {
+        console.error("[Hub Proxy] Error:", error);
+        if (!res.headersSent) {
+            res.status(502).send({ error: 'Proxy request failed: ' + error.message });
+        } else {
+            res.end();
+        }
+    }
+}
+
 app.get('/proxy', reverseProxyFunc_get);
 app.get('/proxy2', reverseProxyFunc_get);
+app.get('/hub-proxy/*', hubProxyFunc);
 
 app.post('/proxy', reverseProxyFunc);
 app.post('/proxy2', reverseProxyFunc);
+app.post('/hub-proxy/*', hubProxyFunc);
 
 app.get('/api/password', async(req, res)=> {
     if(password === ''){
@@ -301,9 +365,6 @@ async function getHttpsOptions() {
     const keyPath = path.join(sslPath, 'server.key');
     const certPath = path.join(sslPath, 'server.crt');
 
-    console.log(keyPath)
-    console.log(certPath)
-
     try {
  
         await fs.access(keyPath);
@@ -317,36 +378,37 @@ async function getHttpsOptions() {
         return { key, cert };
 
     } catch (error) {
-        console.error('SSL setup errors:', error.message);
-        console.log('Start the server with HTTP instead of HTTPS...');
+        console.error('[Server] SSL setup errors:', error.message);
+        console.log('[Server] Start the server with HTTP instead of HTTPS...');
         return null;
     }
 }
 
 async function startServer() {
-    const port = process.env.PORT || 6001;
-    const httpsOptions = await getHttpsOptions();
+    try {
+      
+        const port = process.env.PORT || 6001;
+        const httpsOptions = await getHttpsOptions();
 
-    if (httpsOptions) {
-        // HTTPS
-        https.createServer(httpsOptions, app).listen(port, () => {
-            console.log("HTTPS server is running.");
-            console.log("https://localhost:6001/");
-        });
-
-    } else {
-        // HTTP
-        app.listen(port, () => {
-            console.log("HTTP server is running.");
-            console.log("http://localhost:6001/");
-        });
+        if (httpsOptions) {
+            // HTTPS
+            https.createServer(httpsOptions, app).listen(port, () => {
+                console.log("[Server] HTTPS server is running.");
+                console.log(`[Server] https://localhost:${port}/`);
+            });
+        } else {
+            // HTTP
+            app.listen(port, () => {
+                console.log("[Server] HTTP server is running.");
+                console.log(`[Server] http://localhost:${port}/`);
+            });
+        }
+    } catch (error) {
+        console.error('[Server] Failed to start server :', error);
+        process.exit(1);
     }
 }
 
 (async () => {
-    try {
-        await startServer();
-    } catch (error) {
-        console.error('Fail to start server :', error);
-    }
+    await startServer();
 })();

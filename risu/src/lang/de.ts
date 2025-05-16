@@ -464,6 +464,7 @@ export const languageGerman = {
         "noSummariesLabel": "Noch keine Zusammenfassungen",
         "searchPlaceholder": "Geben Sie #N, ID oder Suchanfrage ein",
         "summaryNumberLabel": "Zusammenfassung #{0}",
+        "deleteThisConfirmMessage": "Diese Zusammenfassung löschen?",
         "deleteAfterConfirmMessage": "Alle Zusammenfassungen nach dieser löschen?",
         "deleteAfterConfirmSecondMessage": "Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie wirklich sicher?",
         "translationLabel": "Übersetzung",
@@ -480,6 +481,7 @@ export const languageGerman = {
         "nextSummarizationLabel": "HypaV3 wird [{0}] zusammenfassen",
         "nextSummarizationNoMessagesFoundLabel": "WARNUNG: Keine Nachrichten gefunden",
         "nextSummarizationLoadingError": "Fehler beim Laden des nächsten Zusammenfassungsziels: {0}",
+        "summarizationConditionLabel": "Hinweis: HypaV3 beginnt mit der Zusammenfassung, wenn die Eingabe-Tokens die maximale Kontextgröße überschreiten.",
         "emptySelectedFirstMessageLabel": "WARNUNG: Ausgewählte erste Nachricht ist leer"
     },
 }

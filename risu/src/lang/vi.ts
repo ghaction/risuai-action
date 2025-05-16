@@ -438,6 +438,7 @@ export const LanguageVietnamese = {
         "noSummariesLabel": "Chưa có tóm tắt nào",
         "searchPlaceholder": "Nhập #N, ID hoặc từ khóa",
         "summaryNumberLabel": "Tóm tắt #{0}",
+        "deleteThisConfirmMessage": "Xóa bản tóm tắt này?",
         "deleteAfterConfirmMessage": "Xóa tất cả các tóm tắt sau tóm tắt này?",
         "deleteAfterConfirmSecondMessage": "Hành động này không thể hoàn tác. Bạn có chắc chắn không?",
         "translationLabel": "Bản dịch",
@@ -454,6 +455,7 @@ export const LanguageVietnamese = {
         "nextSummarizationLabel": "HypaV3 sẽ tóm tắt [{0}]",
         "nextSummarizationNoMessagesFoundLabel": "CẢNH BÁO: Không tìm thấy tin nhắn",
         "nextSummarizationLoadingError": "Lỗi khi tải mục tiêu tóm tắt tiếp theo: {0}",
+        "summarizationConditionLabel": "Mẹo: HypaV3 bắt đầu tóm tắt khi số lượng token đầu vào vượt quá kích thước ngữ cảnh tối đa.",
         "emptySelectedFirstMessageLabel": "CẢNH BÁO: Tin nhắn đầu tiên được chọn trống"
     },
 }

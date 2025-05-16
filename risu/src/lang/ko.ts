@@ -125,6 +125,7 @@ export const languageKorean = {
         "groupOtherBotRole": "This defines a role that is used in group chat for characters that isn't speaker.",
         "chatHTML": "A HTML that would be inserted as each chat.\n\nYou can use CBS and special tags.\n- `<risutextbox>`: a textbox that would be used to render text\n- `<risuicon>`: an icon for user or assistant\n- `<risubuttons>`: icon buttons for chat edit, translations and etc.\n- `<risugeninfo>`: generation information button.",
         "autoTranslateCachedOnly": "자동 번역 옵션이 켜진 상태에서 활성화하면, 사용자가 이전에 번역한 메시지만 자동으로 번역됩니다.",
+        "promptInfoInsideChatDesc": "활성화되면 채팅 메타데이터에 프롬프트 프리셋 정보를 저장합니다. 저장되는 정보는 프롬프트 프리셋 이름과 활성화된 토글, 그리고 프롬프트 텍스트입니다. 약간의 처리 시간과 용량을 차지할 수 있습니다.",
     },
     "setup": {
         "chooseProvider": "AI 제공자를 선택해 주세요",
@@ -955,6 +956,7 @@ export const languageKorean = {
         "noSummariesLabel": "아직 요약이 없습니다",
         "searchPlaceholder": "#N, ID 또는 검색어 입력",
         "summaryNumberLabel": "요약 #{0}",
+        "deleteThisConfirmMessage": "이 요약을 삭제하시겠습니까?",
         "deleteAfterConfirmMessage": "이 요약 이후의 모든 요약을 삭제하시겠습니까?",
         "deleteAfterConfirmSecondMessage": "이 작업은 되돌릴 수 없습니다. 정말 삭제하시겠습니까?",
         "translationLabel": "번역",
@@ -971,7 +973,8 @@ export const languageKorean = {
         "nextSummarizationLabel": "HypaV3가 [{0}]를 요약할 예정입니다",
         "nextSummarizationNoMessagesFoundLabel": "경고: 메시지를 찾을 수 없습니다",
         "nextSummarizationLoadingError": "다음 요약 대상을 불러오는 동안 오류 발생: {0}",
-        "emptySelectedFirstMessageLabel": "경고: 선택된 첫 메시지가 비어있습니다"
+        "summarizationConditionLabel": "팁: HypaV3는 입력 토큰이 최대 컨텍스트 크기를 넘으면 요약을 시작합니다.",
+        "emptySelectedFirstMessageLabel": "경고: 선택된 첫 메시지가 비어있습니다",
     },
     "bulkEnabling": "한번에 로어북 활성화 버튼",
     "showTranslationLoading": "번역 로딩 보이기",
@@ -984,4 +987,12 @@ export const languageKorean = {
     "childLoreDesc": "이것은 캐릭터 로어의 복사본이며, 삭제하거나 원본 로어에서 직접 비활성화하기 전에는 '언제나 활성화' 상태로 유지됩니다.",
     "cachePoint": "캐시 포인트",
     "all": "모두",
+    "hypaMemoryV2Modal": "하이파 V2 모달",
+    "hypaMemoryV3Modal": "하이파 V3 모달",
+    "showMenuHypaMemoryModal": "메뉴에서 하이파 모달 보이기",
+    "promptInfoInsideChat": "채팅에 프롬프트 정보 추가하기",
+    "promptTextInfoInsideChat": "채팅에 프롬프트 텍스트 정보 추가하기",
+    "promptInfoEmptyMessage": "이 메시지에 대한 프롬프트 정보가 없습니다.",
+    "promptInfoEmptyToggle": "활성화된 커스텀 토글이 없습니다.",
+    "promptInfoEmptyText": "저장된 프롬프트 텍스트가 없습니다.",
 }

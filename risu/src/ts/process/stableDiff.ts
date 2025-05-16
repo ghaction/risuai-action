@@ -1,5 +1,5 @@
 import { get } from "svelte/store"
-import { getDatabase, type character } from "../storage/database.svelte"
+import { getDatabase, type character, type NAIImgConfig } from "../storage/database.svelte"
 import { requestChatData } from "./request"
 import { alertError } from "../alert"
 import { fetchNative, globalFetch, readImage } from "../globalApi.svelte"
@@ -125,13 +125,111 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
 
         let reqlist:any = {}
 
+        const commonReq = {
+            body: {
+                "input": genPrompt,
+                "model": db.NAIImgModel,
+                "parameters": {
+                    "params_version": 3,
+                    "add_original_image": true,
+                    "cfg_rescale": db.NAIImgConfig.cfg_rescale,
+                    "controlnet_strength": 1,
+                    "dynamic_thresholding": false,
+                    "n_samples": 1,
+                    "width": db.NAIImgConfig.width,
+                    "height": db.NAIImgConfig.height,
+                    "sampler": db.NAIImgConfig.sampler,
+                    "steps": db.NAIImgConfig.steps,
+                    "scale": db.NAIImgConfig.scale,
+                    "negative_prompt": neg,
+                    "sm": false,
+                    "sm_dyn": false,
+                    "noise": db.NAIImgConfig.noise,
+                    "noise_schedule": "karras",
+                    "normalize_reference_strength_multiple":false,
+                    "strength": db.NAIImgConfig.strength,
+                    "ucPreset": 3,
+                    "uncond_scale": 1,
+                    "qualityToggle": false,
+                    "legacy_v3_extend": false,
+                    "legacy": false,
+                    // "reference_information_extracted": db.NAIImgConfig.InfoExtracted,
+                    // Only set reference_strength if we're not using reference_strength_multiple
+                    "reference_strength": db.NAIImgConfig.reference_strength_multiple !== undefined ? undefined : db.NAIImgConfig.RefStrength,
+                    //add v4
+                    "autoSmea": db.NAIImgConfig.autoSmea,
+                    "use_coords": db.NAIImgConfig.use_coords,
+                    "legacy_uc": db.NAIImgConfig.legacy_uc,
+                    "v4_prompt":{
+                        caption:{
+                            base_caption:genPrompt,
+                            char_captions: []
+                        },
+                        use_coords: db.NAIImgConfig.v4_prompt.use_coords,
+                        use_order: db.NAIImgConfig.v4_prompt.use_order
+                    },
+                    "v4_negative_prompt":{
+                        caption:{
+                            base_caption:neg,
+                            char_captions: []
+                        },
+                        legacy_uc: db.NAIImgConfig.v4_negative_prompt.legacy_uc,
+                    },
+                    "reference_image_multiple" : [],
+                    "reference_strength_multiple" : [],
+                }
+            },
+            headers:{
+                "Authorization": "Bearer " + db.NAIApiKey
+            },
+            rawResponse: true
+        }
+
+        // Add vibe reference_image_multiple if exists
+        if(db.NAIImgConfig.vibe_data) {
+            const vibeData = db.NAIImgConfig.vibe_data;
+            // Determine which model to use based on vibe_model_selection or fallback to current model
+            const modelKey = db.NAIImgConfig.vibe_model_selection || 
+                            (db.NAIImgModel.includes('nai-diffusion-4-full') ? 'v4full' : 
+                             db.NAIImgModel.includes('nai-diffusion-4-curated') ? 'v4curated' : null);
+
+            if(modelKey && vibeData.encodings && vibeData.encodings[modelKey]) {
+                // Initialize arrays if they don't exist
+                if(!commonReq.body.parameters.reference_image_multiple) {
+                    commonReq.body.parameters.reference_image_multiple = [];
+                }
+                if(!commonReq.body.parameters.reference_strength_multiple) {
+                    commonReq.body.parameters.reference_strength_multiple = [];
+                }
+
+                // Use selected encoding or first available
+                let encodingKey = db.NAIImgConfig.vibe_model_selection ? 
+                                 Object.keys(vibeData.encodings[modelKey]).find(key => 
+                                    vibeData.encodings[modelKey][key].params.information_extracted === 
+                                    (db.NAIImgConfig.InfoExtracted || 1)) : 
+                                 Object.keys(vibeData.encodings[modelKey])[0];
+
+                if(encodingKey) {
+                    const encoding = vibeData.encodings[modelKey][encodingKey].encoding;
+                    // Add encoding to the array
+                    commonReq.body.parameters.reference_image_multiple.push(encoding);
+
+                    // Add reference_strength_multiple if it exists
+                    const strength = db.NAIImgConfig.reference_strength_multiple && 
+                                    db.NAIImgConfig.reference_strength_multiple.length > 0 ? 
+                                    db.NAIImgConfig.reference_strength_multiple[0] : 0.5;
+                    commonReq.body.parameters.reference_strength_multiple.push(strength);
+                }
+            }
+        }
+
         if(db.NAII2I){
             let seed = Math.floor(Math.random() * 10000000000)
-         
+
             let base64img = ''
             if(db.NAIImgConfig.image === ''){
                 const charimg = currentChar.image;
-                
+
                 const img = await readImage(charimg)
                 base64img = Buffer.from(img).toString('base64');
             }   else{
@@ -139,153 +237,49 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
             }
 
             let refimgbase64 = undefined
-            
-
-
 
             if(db.NAIREF){
                 if(db.NAIImgConfig.refimage !== ''){
                     refimgbase64 = Buffer.from(await readImage(db.NAIImgConfig.refimage)).toString('base64');
                 }
             }
-            
-            reqlist = {
-                body: {
-                    "action": "img2img",
-                    "input": genPrompt,
-                    "model": db.NAIImgModel,
-                    "parameters": {
-                        "params_version": 1,
-                        "add_original_image": true,
-                        "cfg_rescale": 0,
-                        "controlnet_strength": 1,
-                        "dynamic_thresholding": false,
-                        "extra_noise_seed": seed,
-                        "n_samples": 1,
-                        "width": db.NAIImgConfig.width,
-                        "height": db.NAIImgConfig.height,
-                        "sampler": db.NAIImgConfig.sampler,
-                        "steps": db.NAIImgConfig.steps,
-                        "scale": db.NAIImgConfig.scale,
-                        "seed": seed,
-                        "negative_prompt": neg,
-                        "sm": false,
-                        "sm_dyn": false,
-                        "noise": db.NAIImgConfig.noise,
-                        "noise_schedule": "native",
-                        "strength": db.NAIImgConfig.strength,
-                        "image": base64img,
-                        "ucPreset": 3,
-                        "uncond_scale": 1,
-                        "qualityToggle": false,
-                        "lagacy_v3_extend": false,
-                        "lagacy": false,
-                        "reference_information_extracted": db.NAIImgConfig.InfoExtracted,
-                        "reference_strength": db.NAIImgConfig.RefStrength
-                    }
-                },
-                headers:{
-                    "Authorization": "Bearer " + db.NAIApiKey
-                },
-                rawResponse: true
-            }
+
+            reqlist = commonReq;
+            reqlist.body.action = "img2img";
+            reqlist.body.parameters.image = base64img;
+            reqlist.body.parameters.extra_noise_seed = seed;
+            reqlist.body.parameters.seed = seed;
 
             if(refimgbase64 !== undefined){
                 reqlist.body.parameters.reference_image = refimgbase64
             }
+
+
+            console.log({img2img:reqlist});
         }else{
-           
 
             if (db.NAIREF) {
-           
-    
+
                 let base64img = ''
                 if(db.NAIImgConfig.image === ''){
                     const charimg = currentChar.image;
-                    
+
                     const img = await readImage(charimg)
                     base64img = Buffer.from(img).toString('base64');
                 }   else{
                     base64img = Buffer.from(await readImage(db.NAIImgConfig.refimage)).toString('base64');
                 }
-                reqlist = {
-                    body: {
-                        "action": "generate",
-                        "input": genPrompt,
-                        "model": db.NAIImgModel,
-                        "parameters": {
-                            "params_version": 1,
-                            "add_original_image": true,
-                            "cfg_rescale": 0,
-                            "controlnet_strength": 1,
-                            "dynamic_thresholding": false,
-                            "n_samples": 1,
-                            "width": db.NAIImgConfig.width,
-                            "height": db.NAIImgConfig.height,
-                            "sampler": db.NAIImgConfig.sampler,
-                            "steps": db.NAIImgConfig.steps,
-                            "scale": db.NAIImgConfig.scale,
-                            "negative_prompt": neg,
-                            "sm": db.NAIImgConfig.sm,
-                            "sm_dyn": db.NAIImgConfig.sm_dyn,
-                            "noise_schedule": "native",
-                            "ucPreset": 3,
-                            "uncond_scale": 1,
-                            "qualityToggle": false,
-                            "legacy": false,
-                            "lagacy_v3_extend": false,
-                            "reference_image": base64img,
-                            "reference_strength": db.NAIImgConfig.RefStrength,
-                            "reference_information_extracted": db.NAIImgConfig.InfoExtracted
-                        }
-                    },
-                    headers:{
-                        "Authorization": "Bearer " + db.NAIApiKey
-                    },
-                    rawResponse: true
-                }
+                reqlist = commonReq;
+                reqlist.body.action = 'generate';
+                reqlist.body.parameters.reference_image = base64img;
+
+                console.log({generate:reqlist});
             } else {
-                reqlist = {
-                    body: {
-                        "input": genPrompt,
-                        "model": db.NAIImgModel,
-                        "parameters": {
-                            "params_version": 1,
-                            "width": db.NAIImgConfig.width,
-                            "height": db.NAIImgConfig.height,
-                            "scale": db.NAIImgConfig.scale,
-                            "sampler": db.NAIImgConfig.sampler,
-                            "steps": db.NAIImgConfig.steps,
-                            "n_samples": 1,
-                            "ucPreset": 3,
-                            "qualityToggle": false,
-                            "sm": db.NAIImgConfig.sm,
-                            "sm_dyn": db.NAIImgConfig.sm_dyn,
-                            "dynamic_thresholding": false,
-                            "controlnet_strength": 1,
-                            "legacy": false,
-                            "add_original_image": true,
-                            "uncond_scale": 1,
-                            "cfg_rescale": 0,
-                            "noise_schedule": "native",
-                            "legacy_v3_extend": false,
-                            "reference_information_extracted": db.NAIImgConfig.InfoExtracted,
-                            "reference_strength": db.NAIImgConfig.RefStrength,
-                            "negative_prompt": neg,
-                        }
-                    },
-                    headers:{
-                        "Authorization": "Bearer " + db.NAIApiKey
-                    },
-                    rawResponse: true
+                reqlist = commonReq;
+                reqlist.body.action = 'generate';
 
-                }
+                console.log({nothing:reqlist});
             }
-
-
-
-
-                
         }
         try {
             const da = await globalFetch(db.NAIImgUrl, reqlist)   
@@ -459,7 +453,7 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
                         if(inputKeys[j] === 'seed' && typeof input === 'number'){
                             input = Math.floor(Math.random() * 1000000000)
                         }
-                        
+
                         node.inputs[inputKeys[j]] = input
                     }
                 }
@@ -547,7 +541,7 @@ export async function generateAIImage(genPrompt:string, currentChar:character, n
             CharEmotion.set(charemotions)
         }
         return returnSdData
-        
+
     }
     if(db.sdProvider === 'fal'){
         const model = db.falModel

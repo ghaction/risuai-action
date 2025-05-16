@@ -3,12 +3,12 @@
     import { tokenizeAccurate } from "../../ts/tokenizer";
     import { saveImage as saveAsset, type Database, type character, type groupChat } from "../../ts/storage/database.svelte";
     import { DBState } from 'src/ts/stores.svelte';
-    import { CharConfigSubMenu, MobileGUI, ShowRealmFrameStore, selectedCharID } from "../../ts/stores.svelte";
+    import { CharConfigSubMenu, MobileGUI, ShowRealmFrameStore, selectedCharID, hypaV3ModalOpen } from "../../ts/stores.svelte";
     import { PlusIcon, SmileIcon, TrashIcon, UserIcon, ActivityIcon, BookIcon, User, CurlyBraces, Volume2Icon, DownloadIcon, FolderUpIcon, Share2Icon } from 'lucide-svelte'
     import Check from "../UI/GUI/CheckInput.svelte";
     import { addCharEmotion, addingEmotion, getCharImage, rmCharEmotion, selectCharImg, makeGroupImage, removeChar, changeCharImage } from "../../ts/characters";
     import LoreBook from "./LoreBook/LoreBookSetting.svelte";
-    import { alertConfirm, alertMd, alertNormal, alertSelectChar, alertTOS, showHypaV2Alert, showHypaV3Alert } from "../../ts/alert";
+    import { alertConfirm, alertMd, alertNormal, alertSelectChar, alertTOS, showHypaV2Alert } from "../../ts/alert";
     import BarIcon from "./BarIcon.svelte";
     import { findCharacterbyId, getAuthorNoteDefaultText, parseKeyValue, selectMultipleFile, selectSingleFile } from "../../ts/util";
     import { onDestroy } from "svelte";
@@ -1101,20 +1101,16 @@
                 }}
                 className="mt-4"
             >
-                {language.HypaMemory} V2 Data
+                {language.hypaMemoryV2Modal}
             </Button>
-        {:else if DBState.db.supaModelType !== 'none' && DBState.db.hypaV3}
+        {:else if DBState.db.hypaV3}
             <Button
                 onclick={() => {
-                    DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].hypaV3Data ??= {
-                        summaries: [],
-                        lastSelectedSummaries: [],
-                    }
-                    showHypaV3Alert()
+                    $hypaV3ModalOpen = true
                 }}
                 className="mt-4"
             >
-                {language.HypaMemory} V3 Data
+                {language.hypaMemoryV3Modal}
             </Button>
         {:else if DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].supaMemoryData && DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].supaMemoryData.length > 4 || DBState.db.characters[$selectedCharID].supaMemory}
             <span class="text-textcolor mt-4">{language.SuperMemory}</span>

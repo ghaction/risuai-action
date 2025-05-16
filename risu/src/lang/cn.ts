@@ -800,6 +800,7 @@ export const languageChinese = {
         "noSummariesLabel": "尚无总结",
         "searchPlaceholder": "输入 #N、ID 或搜索关键词",
         "summaryNumberLabel": "总结 #{0}",
+        "deleteThisConfirmMessage": "删除此摘要？",
         "deleteAfterConfirmMessage": "删除此后的所有总结？",
         "deleteAfterConfirmSecondMessage": "此操作无法撤销。您确定吗？",
         "translationLabel": "翻译",
@@ -816,6 +817,7 @@ export const languageChinese = {
         "nextSummarizationLabel": "HypaV3 将总结 [{0}]",
         "nextSummarizationNoMessagesFoundLabel": "警告：未找到消息",
         "nextSummarizationLoadingError": "加载下一个总结目标时出错：{0}",
+        "summarizationConditionLabel": "提示：当输入标记超过最大上下文大小时，HypaV3 将开始进行摘要处理。",
         "emptySelectedFirstMessageLabel": "警告：所选的第一条消息为空"
     },
 }

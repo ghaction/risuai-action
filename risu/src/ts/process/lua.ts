@@ -1,42 +1,47 @@
-import { getChatVar, hasher, setChatVar, getGlobalChatVar, type simpleCharacterArgument } from "../parser.svelte";
+import { getChatVar, hasher, setChatVar, getGlobalChatVar, type simpleCharacterArgument, risuChatParser } from "../parser.svelte";
 import { LuaEngine, LuaFactory } from "wasmoon";
-import { getCurrentCharacter, getCurrentChat, getDatabase, setCurrentChat, setDatabase, type Chat, type character, type groupChat } from "../storage/database.svelte";
+import { getCurrentCharacter, getCurrentChat, getDatabase, setDatabase, type Chat, type character, type groupChat, type loreBook } from "../storage/database.svelte";
 import { get } from "svelte/store";
 import { ReloadGUIPointer, selectedCharID } from "../stores.svelte";
-import { alertError, alertInput, alertNormal } from "../alert";
+import { alertSelect, alertError, alertInput, alertNormal } from "../alert";
 import { HypaProcesser } from "./memory/hypamemory";
 import { generateAIImage } from "./stableDiff";
 import { writeInlayImage } from "./files/inlays";
 import type { OpenAIChat } from "./index.svelte";
 import { requestChatData } from "./request";
 import { v4 } from "uuid";
-import { getModuleTriggers } from "./modules";
+import { getModuleLorebooks, getModuleTriggers } from "./modules";
 import { Mutex } from "../mutex";
 import { tokenize } from "../tokenizer";
+import { fetchNative } from "../globalApi.svelte";
+import { loadLoreBookV3Prompt } from './lorebook.svelte';
+import { getPersonaPrompt, getUserName } from '../util';
 
 let luaFactory:LuaFactory
 let LuaSafeIds = new Set<string>()
 let LuaEditDisplayIds = new Set<string>()
 let LuaLowLevelIds = new Set<string>()
+let lastRequestResetTime = 0
+let lastRequestsCount = 0
 
 interface LuaEngineState {
-    code: string;
-    engine: LuaEngine;
+    code?: string;
+    engine?: LuaEngine;
     mutex: Mutex;
-    chat: Chat;
-    setVar: (key:string, value:string) => void,
-    getVar: (key:string) => string,
-    getGlobalVar: (key:string) => any,
+    chat?: Chat;
+    setVar?: (key:string, value:string) => void,
+    getVar?: (key:string) => string,
 }
 
 let LuaEngines = new Map<string, LuaEngineState>()
+let luaFactoryPromise: Promise<void> | null = null;
+let pendingEngineCreations = new Map<string, Promise<LuaEngineState>>();
 
 export async function runLua(code:string, arg:{
     char?:character|groupChat|simpleCharacterArgument,
     chat?:Chat
     setVar?: (key:string, value:string) => void,
     getVar?: (key:string) => string,
-    getGlobalVar?: (key:string) => any,
     lowLevelAccess?: boolean,
     mode?: string,
     data?: any
@@ -44,40 +49,22 @@ export async function runLua(code:string, arg:{
     const char = arg.char ?? getCurrentCharacter()
     const setVar = arg.setVar ?? setChatVar
     const getVar = arg.getVar ?? getChatVar
-    const getGlobalVar = arg.getGlobalVar ?? getGlobalChatVar
     const mode = arg.mode ?? 'manual'
     const data = arg.data ?? {}
     let chat = arg.chat ?? getCurrentChat()
     let stopSending = false
     let lowLevelAccess = arg.lowLevelAccess ?? false
 
-    if(!luaFactory){
-        await makeLuaFactory()
-    }
-    let luaEngineState = LuaEngines.get(mode)
-    let wasEmpty = false
-    if (!luaEngineState) {
-        luaEngineState = {
-            code,
-            engine: await luaFactory.createEngine({injectObjects: true}),
-            mutex: new Mutex(),
-            chat,
-            setVar,
-            getVar,
-            getGlobalVar
-        }
-        LuaEngines.set(mode, luaEngineState)
-        wasEmpty = true
-    } else {
+    await ensureLuaFactory()
+    let luaEngineState = await getOrCreateEngineState(mode);
+    
+    return await luaEngineState.mutex.runExclusive(async () => {
         luaEngineState.chat = chat
         luaEngineState.setVar = setVar
         luaEngineState.getVar = getVar
-        luaEngineState.getGlobalVar = getGlobalVar
-    }
-    return await luaEngineState.mutex.runExclusive(async () => {
-        if (wasEmpty || code !== luaEngineState.code) {
-            if (!wasEmpty)
-                luaEngineState.engine.global.close()
+        if (code !== luaEngineState.code) {
+            luaEngineState.engine?.global.close()
+            luaEngineState.code = code
             luaEngineState.engine = await luaFactory.createEngine({injectObjects: true})
             const luaEngine = luaEngineState.engine
             luaEngine.global.set('setChatVar', (id:string,key:string, value:string) => {
@@ -96,7 +83,7 @@ export async function runLua(code:string, arg:{
                 if(!LuaSafeIds.has(id) && !LuaEditDisplayIds.has(id)){
                     return
                 }
-                return luaEngineState.getGlobalVar(key)
+                return getGlobalChatVar(key)
             })
             luaEngine.global.set('stopChat', (id:string) => {
                 if(!LuaSafeIds.has(id)){
@@ -121,6 +108,12 @@ export async function runLua(code:string, arg:{
                     return
                 }
                 return alertInput(value)
+            })
+            luaEngine.global.set('alertSelect', (id:string, value:string[]) => {
+                if(!LuaSafeIds.has(id)){
+                    return
+                }
+                return alertSelect(value)
             })
             luaEngine.global.set('setChat', (id:string, index:number, value:string) => {
                 if(!LuaSafeIds.has(id)){
@@ -221,6 +214,75 @@ export async function runLua(code:string, arg:{
                 const processer = new HypaProcesser()
                 await processer.addText(value)
                 return await processer.similaritySearch(source)
+            })
+
+            luaEngine.global.set('request', async (id:string, url:string) => {
+                if(!LuaLowLevelIds.has(id)){
+                    return
+                }
+
+                if(lastRequestResetTime + 60000 < Date.now()){
+                    lastRequestsCount = 0
+                    lastRequestResetTime = Date.now()
+                }
+                
+                if(lastRequestsCount > 5){
+                    return {
+                        status: 429,
+                        data: 'Too many requests. you can request 5 times per minute'
+                    }
+                }
+
+                lastRequestsCount++
+
+                try {
+                    //for security and other reasons, only get request in 120 char is allowed
+                    if(url.length > 120){
+                        return {
+                            status: 413,
+                            data: 'URL to large. max is 120 characters'
+                        }
+                    }
+
+                    if(!url.startsWith('https://')){
+                        return {
+                            status: 400,
+                            data: "Only https requests are allowed"
+                        }
+                    }
+
+                    const bannedURL = [
+                        "https://realm.risuai.net",
+                        "https://risuai.net",
+                        "https://risuai.xyz"
+                    ]
+
+                    for(const burl of bannedURL){
+
+                        if(url.startsWith(burl)){
+                            return {
+                                status: 400,
+                                data: "request to " + url + ' is not allowed'
+                            }
+                        }
+                    }
+
+                    //browser fetch
+                    const d = await fetchNative(url, {
+                        method: "GET"
+                    })
+                    const text = await d.text()
+                    return {
+                        status: d.status,
+                        data: text
+                    }
+
+                } catch (error) {
+                    return {
+                        status: 400,
+                        data: 'internal error'
+                    }
+                }
             })
 
             luaEngine.global.set('generateImage', async (id:string, value:string, negValue:string = '') => {
@@ -400,6 +462,26 @@ export async function runLua(code:string, arg:{
                 return char.firstMessage
             })
 
+            luaEngine.global.set('getPersonaName', (id:string) => {
+                if(!LuaSafeIds.has(id)){
+                    return
+                }
+
+                return getUserName()
+            })
+
+            luaEngine.global.set('getPersonaDescription', (id:string) => {
+                if(!LuaSafeIds.has(id)){
+                    return
+                }
+                
+                const db = getDatabase()
+                const selectedChar = get(selectedCharID)
+                const char = db.characters[selectedChar]
+
+                return risuChatParser(getPersonaPrompt(), { chara: char })
+            })
+
             luaEngine.global.set('getBackgroundEmbedding', async (id:string) => {
                 if(!LuaSafeIds.has(id)){
                     return
@@ -422,6 +504,67 @@ export async function runLua(code:string, arg:{
                 db.characters[selectedChar].backgroundHTML = data
                 setDatabase(db)
                 return true
+            })
+
+            // Lore books
+            luaEngine.global.set('getLoreBooksMain', (id:string, search: string) => {
+                if(!LuaSafeIds.has(id)){
+                    return
+                }
+
+                const db = getDatabase()
+                const selectedChar = db.characters[get(selectedCharID)]
+                if (selectedChar.type !== 'character') {
+                    return
+                }
+
+                const loreBooks = [...selectedChar.chats[selectedChar.chatPage]?.localLore ?? [], ...selectedChar.globalLore, ...getModuleLorebooks()]
+                const found = loreBooks.filter((b) => b.comment === search)
+
+                return JSON.stringify(found.map((b) => ({ ...b, content: risuChatParser(b.content, { chara: selectedChar }) })))
+            })
+
+            luaEngine.global.set('loadLoreBooksMain', async (id:string, usedContext:number) => {
+                if(!LuaLowLevelIds.has(id)){
+                    return
+                }
+
+                const db = getDatabase()
+
+                const selectedChar = db.characters[get(selectedCharID)]
+
+                if (selectedChar.type !== 'character') {
+                    return
+                }
+
+                const fullLoreBooks = (await loadLoreBookV3Prompt()).actives
+                const maxContext = db.maxContext - usedContext
+                if (maxContext < 0) {
+                    return
+                }
+
+                let totalTokens = 0
+                const loreBooks = []
+
+                for (const book of fullLoreBooks) {
+                    const parsed = risuChatParser(book.prompt, { chara: selectedChar }).trim()
+                    if (parsed.length === 0) {
+                        continue
+                    }
+
+                    const tokens = await tokenize(parsed)
+
+                    if (totalTokens + tokens > maxContext) {
+                        break
+                    }
+                    totalTokens += tokens
+                    loreBooks.push({
+                        data: parsed,
+                        role: book.role === 'assistant' ? 'char' : book.role,
+                    })
+                }
+
+                return JSON.stringify(loreBooks)
             })
 
             luaEngine.global.set('axLLMMain', async (id:string, promptStr:string) => {
@@ -564,7 +707,7 @@ export async function runLua(code:string, arg:{
 }
 
 async function makeLuaFactory(){
-    luaFactory = new LuaFactory()
+    const _luaFactory = new LuaFactory()
     async function mountFile(name:string){
         let code = ''
         for(let i = 0; i < 3; i++){
@@ -576,10 +719,60 @@ async function makeLuaFactory(){
                 }
             } catch (error) {}
         }
-        await luaFactory.mountFile(name,code)
+        await _luaFactory.mountFile(name,code)
     }
 
     await mountFile('json.lua')
+    luaFactory = _luaFactory
+}
+
+async function ensureLuaFactory() {
+    if (luaFactory) return;
+    
+    if (luaFactoryPromise) {
+        try {
+            await luaFactoryPromise;
+        } catch (error) {
+            luaFactoryPromise = null;
+        }
+        return;
+    }
+
+    try {
+        luaFactoryPromise = makeLuaFactory();
+        await luaFactoryPromise;
+    } finally {
+        luaFactoryPromise = null;
+    }
+}
+
+async function getOrCreateEngineState(
+    mode: string, 
+): Promise<LuaEngineState> {
+    let engineState = LuaEngines.get(mode);
+    if (engineState) {
+        return engineState;
+    }
+    
+    let pendingCreation = pendingEngineCreations.get(mode);
+    if (pendingCreation) {
+        return pendingCreation;
+    }
+    
+    const creationPromise = (async () => {
+        const engineState: LuaEngineState = {
+            mutex: new Mutex(),
+        };
+        LuaEngines.set(mode, engineState);
+        
+        pendingEngineCreations.delete(mode);
+        
+        return engineState;
+    })();
+    
+    pendingEngineCreations.set(mode, creationPromise);
+    
+    return creationPromise;
 }
 
 function luaCodeWarper(code:string){
@@ -596,6 +789,15 @@ end
 
 function log(value)
     logMain(json.encode(value))
+end
+
+function getLoreBooks(id, search)
+    return json.decode(getLoreBooksMain(id, search))
+end
+
+
+function loadLoreBooks(id)
+    return json.decode(loadLoreBooksMain(id):await())
 end
 
 function LLM(id, prompt)
@@ -687,7 +889,6 @@ callListenMain = async(function(type, id, value)
     if type == 'editDisplay' then
         for _, func in ipairs(editDisplayFuncs) do
             realValue = func(id, realValue)
-            print(realValue)
         end
     end
 

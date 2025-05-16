@@ -1,4 +1,4 @@
-import DOMPurify from 'isomorphic-dompurify';
+import DOMPurify from 'dompurify';
 import markdownit from 'markdown-it'
 import { getCurrentCharacter, type Database, type Message, type character, type customscript, type groupChat, type triggerscript } from './storage/database.svelte';
 import { DBState } from './stores.svelte';
@@ -45,12 +45,21 @@ DOMPurify.addHook("uponSanitizeElement", (node: HTMLElement, data) => {
           return node.parentNode.removeChild(node);
        }
     }
+    if(data.tagName === 'img'){
+        const loading = node.getAttribute("loading")
+        if(!loading){
+            node.setAttribute("loading","lazy")
+        }
+        const decoding = node.getAttribute("decoding")
+        if(!decoding){
+            node.setAttribute("decoding", "async")
+        }
+    }
 });
 
 DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
     switch(data.attrName){
         case 'style':{
-            data.attrValue = data.attrValue.replace(/(absolute)|(z-index)|(fixed)/g, '')
             break
         }
         case 'class':{
@@ -302,13 +311,17 @@ async function replaceAsync(string, regexp, replacerFunction) {
     return string.replace(regexp, () => replacements[i++])
 }
 
-async function getAssetSrc(assetArr: string[][], name: string, assetPaths: {[key: string]:{path: string, ext?: string}}) {
+async function getAssetSrc(assetArr: string[][], name: string, assetPaths: {[key: string]:{path: string[], ext?: string}}) {
     for (const asset of assetArr) {
         if (trimmer(asset[0].toLocaleLowerCase()) !== trimmer(name)) continue
         const assetPath = await getFileSrc(asset[1])
-        assetPaths[asset[0].toLocaleLowerCase()] = {
-            path: assetPath,
+        const key = asset[0].toLocaleLowerCase()
+        assetPaths[key] = {
+            path: [],
             ext: asset[2]
+        }
+        if(assetPaths[key].ext === asset[2]){
+            assetPaths[key].path.push(assetPath)
         }
         return
     }
@@ -323,11 +336,11 @@ async function getEmoSrc(emoArr: string[][], emoPaths: {[key: string]:{path: str
     }
 }
 
-async function parseAdditionalAssets(data:string, char:simpleCharacterArgument|character, mode:'normal'|'back', mode2:'unset'|'pre'|'post' = 'unset'){
+async function parseAdditionalAssets(data:string, char:simpleCharacterArgument|character, mode:'normal'|'back', arg:{ch:number}){
     const assetWidthString = (DBState.db.assetWidth && DBState.db.assetWidth !== -1 || DBState.db.assetWidth === 0) ? `max-width:${DBState.db.assetWidth}rem;` : ''
 
     let assetPaths:{[key:string]:{
-        path:string
+        path:string[]
         ext?:string
     }} = {}
     let emoPaths:{[key:string]:{
@@ -382,33 +395,39 @@ async function parseAdditionalAssets(data:string, char:simpleCharacterArgument|c
                 return ''
             }
         }
+
+        let p = path.path[0]
+
+        if(path.path.length > 1){
+            p = path.path[Math.floor(arg.ch % p.length)]
+        }
         switch(type){
             case 'raw':
             case 'path':
-                return path.path
+                return p
             case 'img':
-                return `<img src="${path.path}" alt="${path.path}" style="${assetWidthString} "/>`
+                return `<img src="${p}" alt="${p}" style="${assetWidthString} "/>`
             case 'image':
-                return `<div class="risu-inlay-image"><img src="${path.path}" alt="${path.path}" style="${assetWidthString}"/></div>\n`
+                return `<div class="risu-inlay-image"><img src="${p}" alt="${p}" style="${assetWidthString}"/></div>\n`
             case 'video':
-                return `<video controls autoplay loop><source src="${path.path}" type="video/mp4"></video>\n`
+                return `<video controls autoplay loop><source src="${p}" type="video/mp4"></video>\n`
             case 'video-img':
-                return `<video autoplay muted loop><source src="${path.path}" type="video/mp4"></video>\n`
+                return `<video autoplay muted loop><source src="${p}" type="video/mp4"></video>\n`
             case 'audio':
-                return `<audio controls autoplay loop><source src="${path.path}" type="audio/mpeg"></audio>\n`
+                return `<audio controls autoplay loop><source src="${p}" type="audio/mpeg"></audio>\n`
             case 'bg':
                 if(mode === 'back'){
-                    return `<div style="width:100%;height:100%;background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)),url(${path.path}); background-size: cover;"></div>`
+                    return `<div style="width:100%;height:100%;background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)),url(${p}); background-size: cover;"></div>`
                 }
                 break
             case 'asset':{
                 if(path.ext && videoExtention.includes(path.ext)){
-                    return `<video autoplay muted loop><source src="${path.path}" type="video/mp4"></video>\n`
+                    return `<video autoplay muted loop><source src="${p}" type="video/mp4"></video>\n`
                 }
-                return `<img src="${path.path}" alt="${path.path}" style="${assetWidthString} "/>\n`
+                return `<img src="${p}" alt="${p}" style="${assetWidthString} "/>\n`
             }
             case 'bgm':
-                return `<div risu-ctrl="bgm___auto___${path.path}" style="display:none;"></div>\n`
+                return `<div risu-ctrl="bgm___auto___${p}" style="display:none;"></div>\n`
         }
         return ''
     })
@@ -428,7 +447,7 @@ async function parseAdditionalAssets(data:string, char:simpleCharacterArgument|c
     return data
 }
 
-async function getClosestMatch(char: simpleCharacterArgument|character, name:string, assetPaths:{[key:string]:{path:string, ext?:string}}){   
+async function getClosestMatch(char: simpleCharacterArgument|character, name:string, assetPaths:{[key:string]:{path:string[], ext?:string}}){   
     if(!char.additionalAssets) return null
 
     let closest = ''
@@ -454,7 +473,7 @@ async function getClosestMatch(char: simpleCharacterArgument|character, name:str
 
     const assetPath = await getFileSrc(targetPath)
     assetPaths[closest] = {
-        path: assetPath,
+        path: [assetPath],
         ext: targetExt
     }
 
@@ -548,7 +567,9 @@ export async function ParseMarkdown(
     let char = (typeof(charArg) === 'string') ? (findCharacterbyId(charArg)) : (charArg)
 
     if(char && char.type !== 'group'){
-        data = await parseAdditionalAssets(data, char, additionalAssetMode, 'pre')
+        data = await parseAdditionalAssets(data, char, additionalAssetMode, {
+            ch: chatID
+        })
         firstParsed = data
     }
 
@@ -557,7 +578,9 @@ export async function ParseMarkdown(
     }
 
     if(firstParsed !== data && char && char.type !== 'group'){
-        data = await parseAdditionalAssets(data, char, additionalAssetMode, 'post')
+        data = await parseAdditionalAssets(data, char, additionalAssetMode, {
+            ch: chatID
+        })
     }
 
     data = await parseInlayAssets(data ?? '')
@@ -626,6 +649,11 @@ function decodeStyleRule(rule:CssAtRuleAST){
         for(let i=0;i<rule.rules.length;i++){
             rule.rules[i] = decodeStyleRule(rule.rules[i])
         }
+    }
+    if(rule.type === 'import'){
+       if(rule.import.startsWith('data:')){
+            rule.import = 'data:,'
+       }
     }
     return rule
 }
@@ -1211,6 +1239,11 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
             case 'screen_height':{
                 return get(SizeStore).h.toString()
             }
+            case 'cbr':
+            case 'cnl':
+            case 'cnewline':{
+                return '\\n'
+            }
         }
         const arra = p1.split("::")
         if(arra.length > 1){
@@ -1649,6 +1682,38 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 case 'hash':{
                     return ((pickHashRand(0, arra[1]) * 10000000) + 1).toFixed(0).padStart(7, '0')
                 }
+                case 'randint':{
+                    const min = Number(arra[1])
+                    const max = Number(arra[2])
+                    if(isNaN(min) || isNaN(max)){
+                        return 'NaN'
+                    }
+                    return (Math.floor(Math.random() * (max - min + 1)) + min).toString()
+                }
+                case 'cbr':
+                case 'cnl':
+                case 'cnewline':{
+                    return '\\n'.repeat(Number(arra[1]))
+                }
+                case 'dice':{
+                    const notation = arra[1].split('d')
+                    const num = Number(notation[0])
+                    const sides = Number(notation[1])
+                    if(isNaN(num) || isNaN(sides)){
+                        return 'NaN'
+                    }
+                    let total = 0
+                    for(let i = 0; i < num; i++){
+                        total += Math.floor(Math.random() * sides) + 1
+                    }
+                    return total.toString()
+                }
+                case 'fromhex':{
+                    return Number.parseInt(arra[1], 16).toString()
+                }
+                case 'tohex':{
+                    return Number.parseInt(arra[1]).toString(16)
+                }
             }
         }
         if(p1.startsWith('random')){
@@ -1849,7 +1914,7 @@ const legacyBlockMatcher = (p1:string,matcherArg:matcherArg) => {
     return null
 }
 
-type blockMatch = 'ignore'|'parse'|'nothing'|'parse-pure'|'pure'|'each'|'function'|'pure-display'
+type blockMatch = 'ignore'|'parse'|'nothing'|'parse-pure'|'pure'|'each'|'function'|'pure-display'|'normalize'
 
 function parseArray(p1:string):string[]{
     try {
@@ -1895,6 +1960,10 @@ function blockStartMatcher(p1:string,matcherArg:matcherArg):{type:blockMatch,typ
     if(p1 === '#pure_display' || p1 === '#puredisplay'){
         return {type:'pure-display'}
     }
+    if(p1 === '#code'){
+        return {type:'normalize'}
+
+    }
     if(p1.startsWith('#each')){
         let t2 = p1.substring(5).trim()
         if(t2.startsWith('as ')){
@@ -1934,6 +2003,34 @@ function blockEndMatcher(p1:string,type:{type:blockMatch,type2?:string},matcherA
         }
         case 'parse-pure':{
             return p1
+        }
+        case 'normalize':{
+            return p1Trimed.trim().replaceAll('\n','').replaceAll('\t','')
+            .replaceAll(/\\u([0-9A-Fa-f]{4})/g, (match, p1) => {
+                return String.fromCharCode(parseInt(p1, 16))
+            })
+            .replaceAll(/\\(.)/g, (match, p1) => {
+                switch(p1){
+                    case 'n':
+                        return '\n'
+                    case 'r':
+                        return '\r'
+                    case 't':
+                        return '\t'
+                    case 'b':
+                        return '\b'
+                    case 'f':
+                        return '\f'
+                    case 'v':
+                        return '\v'
+                    case 'a':
+                        return '\a'
+                    case 'x':
+                        return '\x00'
+                    default:
+                        return p1
+                }
+            })
         }
         default:{
             return ''
@@ -2096,7 +2193,7 @@ export function risuChatParser(da:string, arg:{
                         break
                     }
                 }
-                if(dat.startsWith('/')){
+                if(dat.startsWith('/') && !dat.startsWith('//')){
                     if(stackType[nested.length] === 5){
                         const blockType = blockNestType.get(nested.length)
                         if( blockType.type === 'ignore' || blockType.type === 'pure' ||

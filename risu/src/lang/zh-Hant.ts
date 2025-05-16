@@ -833,6 +833,7 @@ export const languageChineseTraditional = {
         "noSummariesLabel": "尚無摘要",
         "searchPlaceholder": "輸入 #N、ID 或搜尋關鍵字",
         "summaryNumberLabel": "摘要 #{0}",
+        "deleteThisConfirmMessage": "刪除此摘要？",
         "deleteAfterConfirmMessage": "刪除此摘要之後的所有摘要？",
         "deleteAfterConfirmSecondMessage": "此操作無法撤銷。您確定要這樣做嗎？",
         "translationLabel": "翻譯",
@@ -849,6 +850,7 @@ export const languageChineseTraditional = {
         "nextSummarizationLabel": "HypaV3 將摘要 [{0}]",
         "nextSummarizationNoMessagesFoundLabel": "警告：找不到訊息",
         "nextSummarizationLoadingError": "載入下一個摘要目標時出錯：{0}",
+        "summarizationConditionLabel": "提示：當輸入標記超過最大上下文大小時，HypaV3 將開始進行摘要處理。",
         "emptySelectedFirstMessageLabel": "警告：選定的第一條訊息為空"
     },
 }
