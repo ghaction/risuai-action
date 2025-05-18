@@ -13,7 +13,7 @@ import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../process/memory/hypav3'
 
-export let appVer = "160.0.1"
+export let appVer = "160.0.2"
 export let webAppSubVer = ''
 
 
@@ -309,9 +309,6 @@ export function setDatabase(data:Database){
             },
             legacy_uc:false,
         };
-    }
-    if(checkNullish(data.NAIImgConfig.cfg_rescale)){
-        data.NAIImgConfig.cfg_rescale = 0;
     }
     if(checkNullish(data.customTextTheme)){
         data.customTextTheme = {
