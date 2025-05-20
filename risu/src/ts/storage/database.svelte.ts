@@ -13,7 +13,7 @@ import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../process/memory/hypav3'
 
-export let appVer = "160.0.2"
+export let appVer = "160.1.0"
 export let webAppSubVer = ''
 
 
@@ -1023,6 +1023,7 @@ export interface Database{
     igpPrompt:string
     useTokenizerCaching:boolean
     showMenuHypaMemoryModal:boolean
+    mcpURLs:string[]
     promptInfoInsideChat:boolean
     promptTextInfoInsideChat:boolean
 }

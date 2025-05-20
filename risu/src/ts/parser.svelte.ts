@@ -1,20 +1,22 @@
 import DOMPurify from 'dompurify';
 import markdownit from 'markdown-it'
-import { getCurrentCharacter, type Database, type Message, type character, type customscript, type groupChat, type triggerscript } from './storage/database.svelte';
+import { appVer, getCurrentCharacter, type Database, type Message, type character, type customscript, type groupChat, type triggerscript } from './storage/database.svelte';
 import { DBState } from './stores.svelte';
-import { getFileSrc } from './globalApi.svelte';
+import { getFileSrc, isMobile, isNodeServer, isTauri } from './globalApi.svelte';
 import { processScriptFull } from './process/scripts';
 import { get } from 'svelte/store';
 import css, { type CssAtRuleAST } from '@adobe/css-tools'
 import { SizeStore, selectedCharID } from './stores.svelte';
 import { calcString } from './process/infunctions';
-import { findCharacterbyId, getPersonaPrompt, getUserIcon, getUserName, parseKeyValue, sfc32, sleep, uuidtoNumber } from './util';
+import { findCharacterbyId, getPersonaPrompt, getUserIcon, getUserName, parseKeyValue, pickHashRand} from './util';
 import { getInlayAsset } from './process/files/inlays';
 import { getModuleAssets, getModuleLorebooks, getModules } from './process/modules';
 import type { OpenAIChat } from './process/index.svelte';
 import hljs from 'highlight.js/lib/core'
 import 'highlight.js/styles/atom-one-dark.min.css'
 import { language } from 'src/lang';
+import airisu from '../etc/airisu.cbs?raw'
+import { getModelInfo } from './model/modellist';
 
 const markdownItOptions = {
     html: true,
@@ -96,7 +98,7 @@ function renderMarkdown(md:markdownit, data:string){
         quotes = DBState.db.customQuotesData ?? quotes
     }
 
-    let text = md.render(data.replace(/“|”/g, '"').replace(/‘|’/g, "'"))
+    let text = md.render(data.replace(/“|”/g, '"').replace(/‘|’/g, "'")).replace(/\uE9b8/g, '{{').replace(/\uE9b9/g, '}}')
 
     if(DBState.db?.unformatQuotes){
         text = text.replace(/\uE9b0/gu, quotes[0]).replace(/\uE9b1/gu, quotes[1])
@@ -840,6 +842,7 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
         const chara = matcherArg.chara
         switch(lowerCased){
             case 'previous_char_chat':
+            case 'previouscharchat':
             case 'lastcharmessage':{
                 const selchar = db.characters[get(selectedCharID)]
                 const chat = selchar.chats[selchar.chatPage]
@@ -853,6 +856,7 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 return chat.fmIndex === -1 ? selchar.firstMessage : selchar.alternateGreetings[chat.fmIndex]
             }
             case 'previous_user_chat':
+            case 'previoususerchat':
             case 'lastusermessage':{
                 if(chatID !== -1){
                     const selchar = db.characters[get(selectedCharID)]
@@ -895,7 +899,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 return getUserName()
             }
             case 'personality':
-            case 'char_persona':{
+            case 'char_persona':
+            case 'charpersona':    {
                 const argChara = chara
                 const achara = (argChara && typeof(argChara) !== 'string') ? argChara : (db.characters[get(selectedCharID)])
                 if(achara.type === 'group'){
@@ -904,7 +909,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 return risuChatParser(achara.personality, matcherArg)
             }
             case 'description':
-            case 'char_desc':{
+            case 'char_desc':
+            case 'chardesc':{
                 const argChara = chara
                 const achara = (argChara && typeof(argChara) !== 'string') ? argChara : (db.characters[get(selectedCharID)])
                 if(achara.type === 'group'){
@@ -921,7 +927,9 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 return risuChatParser(achara.scenario, matcherArg)
             }
             case 'example_dialogue':
-            case 'example_message':{
+            case 'example_message':
+            case 'exampledialogue':
+            case 'examplemessage':{
                 const argChara = chara
                 const achara = (argChara && typeof(argChara) !== 'string') ? argChara : (db.characters[get(selectedCharID)])
                 if(achara.type === 'group'){
@@ -930,15 +938,19 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 return risuChatParser(achara.exampleMessage, matcherArg)
             }
             case 'persona':
-            case 'user_persona':{
+            case 'user_persona':
+            case 'userpersona':{
                 return risuChatParser(getPersonaPrompt(), matcherArg)
             }
             case 'main_prompt':
-            case 'system_prompt':{
+            case 'system_prompt':
+            case 'systemprompt':
+            case 'mainprompt':{
                 return risuChatParser(db.mainPrompt, matcherArg)
             }
             case 'lorebook':
-            case 'world_info':{
+            case 'world_info':
+            case 'worldinfo':{
                 const argChara = chara
                 const achara = (argChara && typeof(argChara) !== 'string') ? argChara : (db.characters[get(selectedCharID)])
                 const selchar = db.characters[get(selectedCharID)]
@@ -965,7 +977,9 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
             }
 
             case 'user_history':
-            case 'user_messages':{
+            case 'user_messages':
+            case 'userhistory':
+            case 'usermessages':{
                 const selchar = db.characters[get(selectedCharID)]
                 const chat = selchar.chats[selchar.chatPage]
                 return makeArray(chat.message.filter((v) => {
@@ -977,7 +991,9 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 }))
             }
             case 'char_history':
-            case 'char_messages':{
+            case 'char_messages':
+            case 'charhistory':
+            case 'charmessages':{
                 const selchar = db.characters[get(selectedCharID)]
                 const chat = selchar.chats[selchar.chatPage]
                 return makeArray(chat.message.filter((v) => {
@@ -994,13 +1010,18 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
             }
             case 'ujb':
             case 'global_note':
-            case 'system_note':{
+            case 'system_note':
+            case 'globalnote':
+            case 'systemnote':{
                 return risuChatParser(db.globalNote, matcherArg)
             }
-            case 'chat_index':{
+            case 'chat_index':
+            case 'chatindex':{
                 return chatID.toString() 
             }
-            case 'first_msg_index':{
+            case 'first_msg_index':
+            case 'firstmessageindex':
+            case 'firstmsgindex':{
                 const selchar = db.characters[get(selectedCharID)]
                 const chat = selchar.chats[selchar.chatPage]
                 return chat.fmIndex.toString()
@@ -1009,7 +1030,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
             case 'none':{
                 return ''
             }
-            case 'message_time':{
+            case 'message_time':
+            case 'messagetime':{
                 if(matcherArg.tokenizeAccurate){
                     return `00:00:00`
                 }
@@ -1027,7 +1049,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 //output time in format like 10:30 AM
                 return date.toLocaleTimeString()
             }
-            case 'message_date':{
+            case 'message_date':
+            case 'messagedate':{
                 if(matcherArg.tokenizeAccurate){
                     return `00:00:00`
                 }
@@ -1044,7 +1067,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 //output date in format like Aug 23, 2021
                 return date.toLocaleDateString()
             }
-            case 'message_unixtime_array':{
+            case 'message_unixtime_array':
+            case 'messageunixtimearray':{
                 const selchar = db.characters[get(selectedCharID)]
                 const chat = selchar.chats[selchar.chatPage]
                 return makeArray(chat.message.map((f) => {
@@ -1071,7 +1095,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 const now = new Date()
                 return `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`
             }
-            case 'message_idle_duration':{
+            case 'message_idle_duration':
+            case 'messageidleduration':{
                 if(matcherArg.tokenizeAccurate){
                     return `00:00:00`
                 }
@@ -1124,7 +1149,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 //output, like 1:30:00
                 return hours.toString() + ':' + minutes.toString().padStart(2,'0') + ':' + seconds.toString().padStart(2,'0')
             }
-            case 'idle_duration':{
+            case 'idle_duration':
+            case 'idleduration':{
                 if(matcherArg.tokenizeAccurate){
                     return `00:00:00`
                 }
@@ -1230,13 +1256,17 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                     return f[0]
                 }))
             }
-            case 'prefill_supported':{
+            case 'prefill_supported':
+            case 'prefillsupported':
+            case 'prefill':{
                 return db.aiModel.startsWith('claude') ? '1' : '0'
             }
-            case 'screen_width':{
+            case 'screen_width':
+            case 'screenwidth':{
                 return get(SizeStore).w.toString()
             }
-            case 'screen_height':{
+            case 'screen_height':
+            case 'screenheight':{
                 return get(SizeStore).h.toString()
             }
             case 'cbr':
@@ -1244,6 +1274,25 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
             case 'cnewline':{
                 return '\\n'
             }
+            case 'decbo':
+            case 'displayescapedcurlybracketopen':{
+                return '\uE9b8'
+            }
+            case 'decbc':
+            case 'displayescapedcurlybracketclose':{
+                return '\uE9b9'
+            }
+            case 'bo':
+            case 'ddecbo':
+            case 'doubledisplayescapedcurlybracketopen':{
+                return '\uE9b8\uE9b8'
+            }
+            case 'bc':
+            case 'ddecbc':
+            case 'doubledisplayescapedcurlybracketclose':{
+                return '\uE9b9\uE9b9'
+            }
+            
         }
         const arra = p1.split("::")
         if(arra.length > 1){
@@ -1568,7 +1617,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                     }
                     return dateTimeFormat(arra[1],t)
                 }
-                case 'module_enabled':{
+                case 'module_enabled':
+                case 'moduleenabled':{
                     const modules = getModules()
                     for(const module of modules){
                         if(module.namespace === arra[1]){
@@ -1577,7 +1627,8 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                     }
                     return '0'
                 }
-                case 'module_assetlist':{
+                case 'module_assetlist':
+                case 'moduleassetlist':{
                     const module = getModules()?.find((f) => {
                         return f.namespace === arra[1]
                     })
@@ -1679,6 +1730,14 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 case 'unicodedecode':{
                     return String.fromCharCode(Number(arra[1]))
                 }
+                case 'u':
+                case 'unicodedecodefromhex':{
+                    return String.fromCharCode(parseInt(arra[1], 16))
+                }
+                case 'ue':
+                case 'unicodeencodefromhex':{
+                    return String.fromCharCode(parseInt(arra[1], 16))
+                }
                 case 'hash':{
                     return ((pickHashRand(0, arra[1]) * 10000000) + 1).toFixed(0).padStart(7, '0')
                 }
@@ -1713,6 +1772,90 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 }
                 case 'tohex':{
                     return Number.parseInt(arra[1]).toString(16)
+                }
+                case 'metadata':{
+                    switch(arra[1].toLocaleLowerCase()){
+                        case 'mobile':{
+                            return isMobile ? '1' : '0'
+                        }
+                        case 'local':{
+                            return isTauri ? '1' : '0'
+                        }
+                        case 'node':{
+                            return isNodeServer ? '1' : '0'
+                        }
+                        case 'version':{
+                            return appVer
+                        }
+                        case 'majorversion':
+                        case 'majorver':
+                        case 'major':{
+                            return appVer.split('.')[0]
+                        }
+                        case 'language':
+                        case 'locale':
+                        case 'lang':{
+                            return DBState.db.language
+                        }
+                        case 'browserlanguage':
+                        case 'browserlocale':
+                        case 'browserlang':{
+                            return navigator.language
+                        }
+                        case 'languagekey':{
+                            return language[arra[2]] ?? `Error: ${arra[2]} is not a valid language key.`
+                        }
+                        case 'modelshortname':{
+                            const modelInfo = getModelInfo(DBState.db.aiModel)
+                            return modelInfo.shortName ?? modelInfo.name ?? modelInfo.id
+                        }
+                        case 'modelname':{
+                            const modelInfo = getModelInfo(DBState.db.aiModel)
+                            return modelInfo.name ?? modelInfo.id
+                        }
+                        case 'modelinternalid':{
+                            const modelInfo = getModelInfo(DBState.db.aiModel)
+                            return modelInfo.internalID ?? modelInfo.id
+                        }
+                        case 'modelformat':{
+                            const modelInfo = getModelInfo(DBState.db.aiModel)
+                            return modelInfo.format.toString()
+                        }
+                        case 'modelprovider':{
+                            const modelInfo = getModelInfo(DBState.db.aiModel)
+                            return modelInfo.provider.toString()
+                        }
+                        case 'modeltokenizer':{
+                            const modelInfo = getModelInfo(DBState.db.aiModel)
+                            return modelInfo.tokenizer.toString()
+                        }
+                        case 'imateapot':{
+                            //just a easter egg because why not
+                            return '🫖'
+                        }
+                        case 'risutype':{
+                            return isTauri ? 'local' : isNodeServer ? 'node' : 'web'
+                        }
+                        case 'maxcontext':{
+                            return DBState.db.maxContext.toString()
+                        }
+                        default:{
+                            return `Error: ${arra[1]} is not a valid metadata key.`
+                        }
+
+                    }
+                }
+                case 'iserror':{
+                    return arra[1].toLocaleLowerCase().startsWith('error:') ? '1' : '0'
+                }
+                //the underlined ones are for internal use only.
+                //these doesn't support backward compatibility and breaking changes could happen easily
+                //these SHOULD NOT be used in any other place, and SHOULD NOT be documented 
+                case '__assistantprompt':{
+                    if(DBState.db.characters[get(selectedCharID)]?.chaId === '__airisu'){
+                        return risuChatParser(airisu)
+                    }
+                    return ''
                 }
             }
         }
@@ -1804,22 +1947,6 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
     } catch (error) {
         return null   
     }
-}
-
-function pickHashRand(cid:number,word:string) {
-    let hashAddress = 5515
-    const rand = (word:string) => {
-        for (let counter = 0; counter<word.length; counter++){
-            hashAddress = ((hashAddress << 5) + hashAddress) + word.charCodeAt(counter)
-        }
-        return hashAddress
-    }
-    const randF = sfc32(rand(word), rand(word), rand(word), rand(word))
-    const v = cid % 1000
-    for (let i = 0; i < v; i++){
-        randF()
-    }
-    return randF()
 }
 
 const dateTimeFormat = (main:string, time = 0) => {
