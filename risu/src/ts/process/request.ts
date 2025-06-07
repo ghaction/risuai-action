@@ -4,7 +4,7 @@ import { pluginProcess, pluginV2 } from "../plugins/plugins";
 import { language } from "../../lang";
 import { stringlizeAINChat, getStopStrings, unstringlizeAIN, unstringlizeChat } from "./stringlize";
 import { addFetchLog, fetchNative, globalFetch, isNodeServer, isTauri, textifyReadableStream } from "../globalApi.svelte";
-import { sleep } from "../util";
+import { replaceAsync, sleep } from "../util";
 import { NovelAIBadWordIds, stringlizeNAIChat } from "./models/nai";
 import { strongBan, tokenize, tokenizeNum } from "../tokenizer";
 import { risuChatParser, risuEscape } from "../parser.svelte";
@@ -24,8 +24,17 @@ import { runTrigger } from "./triggers";
 import { registerClaudeObserver } from "../observer.svelte";
 import { v4 } from "uuid";
 import { risuUnescape } from "../parser.svelte";
+import { callTool, getTools } from "./mcp/mcp";
+import type { MCPTool, RPCToolCallContent } from "./mcp/mcplib";
 
-
+type ToolCall = {
+    name: string;
+    arguments: string;
+}
+type ToolCallResponse = {
+    caller: ToolCall;
+    result: RPCToolCallContent[]
+}
 
 interface requestDataArgument{
     formated: OpenAIChat[]
@@ -48,6 +57,7 @@ interface requestDataArgument{
     previewBody?:boolean
     staticModel?: string
     escape?:boolean
+    tools?: MCPTool[]
 }
 
 interface RequestDataArgumentExtended extends requestDataArgument{
@@ -272,6 +282,7 @@ function applyParameters(data: { [key: string]: any }, parameters: Parameter[], 
 export async function requestChatData(arg:requestDataArgument, model:ModelModeExtended, abortSignal:AbortSignal=null):Promise<requestDataResponse> {
     const db = getDatabase()
     const fallBackModels:string[] = safeStructuredClone(db?.fallbackModels?.[model] ?? [])
+    const tools = await getTools()
     fallBackModels.push('')
     let da:requestDataResponse
 
@@ -333,13 +344,65 @@ export async function requestChatData(arg:requestDataArgument, model:ModelModeEx
     
             da = await requestChatDataMain({
                 ...arg,
-                staticModel: fallBackModels[fallbackIndex]
+                staticModel: fallBackModels[fallbackIndex],
+                tools: tools,
             }, model, abortSignal)
 
             if(abortSignal?.aborted){
                 return {
                     type: 'fail',
                     result: 'Aborted'
+                }
+            }
+
+
+            if(da.type === 'success'){
+                let toolCalled = false
+                da.result = await replaceAsync(da.result, /<tool[\s_]?call>(.*?)<\/tool[\s_]?call>/gi, async (match, p1) => {
+                    toolCalled = true
+                    const toolCall:ToolCall = JSON.parse(p1)
+                    const tool = tools.find(t => t.name === toolCall.name)
+                    if(!tool){
+                        const noTool: ToolCallResponse = {
+                            caller: toolCall,
+                            result: [{
+                                type: 'text',
+                                text: `Tool ${toolCall.name} not found`
+                            }]
+                        }
+                        return `<tool_result>` + noTool + `</tool_result>`
+                    }
+    
+                    let args: any = {}
+                    if(typeof toolCall.arguments !== 'string'){
+                        //Sometimes the arguments are already parsed
+                        args = toolCall.arguments
+                    }
+                    else{
+                        args = JSON.parse(toolCall.arguments)
+                    }
+    
+                    try {
+                        const result = await callTool(tool.name, args)
+                        const toolResult: ToolCallResponse = {
+                            caller: toolCall,
+                            result: result
+                        }
+
+                        return `<tool_result>` + JSON.stringify(toolResult) + `</tool_result>`
+                    } catch (error) {
+                        const toolResult: ToolCallResponse = {
+                            caller: toolCall,
+                            result: [{
+                                type: 'text',
+                                text: `Tool ${toolCall.name} failed: ${error instanceof Error ? error.message : String(error)}`
+                            }]
+                        }
+                        return `<tool_result>` + JSON.stringify(toolResult) + `</tool_result>`
+                    }  
+                })
+                if(toolCalled){
+                    continue
                 }
             }
 
@@ -435,6 +498,12 @@ export interface OpenAIChatExtra {
     prefix?:boolean
     reasoning_content?:string
     cachePoint?:boolean
+    function?: {
+        name: string
+        description?: string
+        parameters: any
+        strict: boolean
+    }
 }
 
 export function reformater(formated:OpenAIChat[],modelInfo:LLMModel|LLMFlags[]){
@@ -705,33 +774,6 @@ async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDat
     }
 
 
-    let oaiFunctions:OaiFunctions[] = []
-
-
-    if(arg.useEmotion){
-        oaiFunctions.push(
-            {
-                "name": "set_emotion",
-                "description": "sets a role playing character's emotion display. must be called one time at the end of response.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "emotion": {
-                            "type": "string", "enum": []
-                        },
-                    },
-                    "required": ["emotion"],
-                },
-            }
-        )
-    }
-
-    if(oaiFunctions.length === 0){
-        oaiFunctions = undefined
-    }
-
-
-    const oaiFunctionCall = oaiFunctions ? (arg.useEmotion ? {"name": "set_emotion"} : "auto") : undefined
     let requestModel = (aiModel === 'reverse_proxy' || aiModel === 'openrouter') ? db.proxyRequestModel : aiModel
     let openrouterRequestModel = db.openrouterRequestModel
     if(aiModel === 'reverse_proxy'){
@@ -904,6 +946,16 @@ async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDat
         stream: false,
 
     })
+
+    if(arg.tools && arg.tools.length > 0){
+        body.tools = arg.tools.map(tool => {
+            return {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.inputSchema
+            } as OaiFunctions
+        })
+    }
 
     if(Object.keys(body.logit_bias).length === 0){
         delete body.logit_bias
@@ -1336,6 +1388,25 @@ async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDat
             const msg:OpenAIChatFull = (dat.choices[0].message)
             let result = msg.content
 
+            if(msg.tool_calls && msg.tool_calls.length > 0){
+                const x:ToolCall[] = msg.tool_calls.map((v) => {
+                    return {
+                        name: v.function.name,
+                        arguments: v.function.arguments
+                    }
+                })
+
+                for(const toolCall of x){
+                    result += `<tool_call>${JSON.stringify(toolCall)}</tool_call>`
+                }
+
+                return {
+                    type: 'success',
+                    result: result
+                }
+
+            }
+
             if(arg.modelInfo.flags.includes(LLMFlags.deepSeekThinkingOutput)){
                 console.log("Checking for reasoning content")
                 let reasoningContent = ""
@@ -1477,6 +1548,16 @@ interface OAIResponseOutputItem {
     role:'assistant'
 }
 
+interface OAIResponseOutputToolCall {
+    arguments: string
+    call_id: string
+    name: string
+    type: 'function_call'
+    id: string
+    status: 'in_progress'|'complete'|'error'
+}
+
+
 type OAIResponseItem = OAIResponseInputItem|OAIResponseOutputItem
 
 
@@ -1593,9 +1674,19 @@ async function requestOpenAIResponseAPI(arg:RequestDataArgumentExtended):Promise
         }
     }
 
-    const text:string = (response.data.output?.find((m:OAIResponseOutputItem) => m.type === 'message') as OAIResponseOutputItem)?.content?.find(m => m.type === 'output_text')?.text
+    const calls = (response.data.output?.filter((m:OAIResponseOutputItem|OAIResponseOutputToolCall) => m.type === 'function_call')) as OAIResponseOutputToolCall[]
+    let result:string = (response.data.output?.find((m:OAIResponseOutputItem) => m.type === 'message') as OAIResponseOutputItem)?.content?.find(m => m.type === 'output_text')?.text
 
-    if(!text){
+    if(calls && calls.length > 0){
+        const toolCalls:ToolCall[] = calls.map((v) => {
+            return {
+                name: v.name,
+                arguments: v.arguments
+            }
+        })
+        result += `<tool_calls>${JSON.stringify(toolCalls)}</tool_calls>`
+    }
+    if(!result){
         return {
             type: 'fail',
             result: JSON.stringify(response.data)
@@ -1603,7 +1694,7 @@ async function requestOpenAIResponseAPI(arg:RequestDataArgumentExtended):Promise
     }
     return {
         type: 'success',
-        result: text
+        result: result
     }
 
 
@@ -2532,6 +2623,15 @@ async function requestGoogleCloudVertex(arg:RequestDataArgumentExtended):Promise
                 }
 
                 rDatas[rDatas.length-1] += part.text ?? ''
+
+                if(part.function_call){
+                    const tool:ToolCall = {
+                        name: part.function_call.name,
+                        arguments: part.function_call.args
+                    }
+                    rDatas[rDatas.length-1] += `<tool_call>${JSON.stringify(tool)}</tool_call>`
+                }
+
                 if(part.inlineData){
                     const imgHTML = new Image()
                     const id = crypto.randomUUID()
@@ -2927,7 +3027,7 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
     const aiModel = arg.aiModel
     const useStreaming = arg.useStreaming
     let replacerURL = arg.customURL ?? ('https://api.anthropic.com/v1/messages')
-    let apiKey = (aiModel === 'reverse_proxy') ?  db.proxyKey : db.claudeAPIKey
+    let apiKey = arg.key || ((aiModel === 'reverse_proxy') ? db.proxyKey : db.claudeAPIKey)
     const maxTokens = arg.maxTokens
     if(aiModel === 'reverse_proxy' && db.autofillRequestUrl){
         if(replacerURL.endsWith('v1')){
@@ -2949,7 +3049,10 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
     interface Claude3TextBlock {
         type: 'text',
         text: string,
-        cache_control?: {"type": "ephemeral"}
+        cache_control?: {
+            "type": "ephemeral",
+            "ttl"?: "5m" | "1h"
+        }
     }
 
     interface Claude3ImageBlock {
@@ -2959,7 +3062,10 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
             media_type: string,
             data: string
         }
-        cache_control?: {"type": "ephemeral"}
+        cache_control?: {
+            "type": "ephemeral"
+            "ttl"?: "5m" | "1h"
+        }
     }
 
     type Claude3ContentBlock = Claude3TextBlock|Claude3ImageBlock
@@ -3024,8 +3130,17 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                 }
             }
             if(chat.cache){
-                content[content.length-1].cache_control = {
-                    type: 'ephemeral'
+
+                if(db.claude1HourCaching){
+                    content[content.length-1].cache_control = {
+                        type: 'ephemeral',
+                        ttl: "1h"
+                    }
+                }
+                else{
+                    content[content.length-1].cache_control = {
+                        type: 'ephemeral'
+                    }
                 }
             }
             claudeChat[claudeChat.length-1].content = content
@@ -3062,8 +3177,16 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
 
             }
             if(chat.cache){
-                formatedChat.content[0].cache_control = {
-                    type: 'ephemeral'
+                if(db.claude1HourCaching){
+                    formatedChat.content[0].cache_control = {
+                        type: 'ephemeral',
+                        ttl: "1h"
+                    }
+                }
+                else{
+                    formatedChat.content[0].cache_control = {
+                        type: 'ephemeral'
+                    }
                 }
             }
             claudeChat.push(formatedChat)
@@ -3317,6 +3440,11 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
         betas.push('output-128k-2025-02-19')
     }
 
+
+    if(db.claude1HourCaching){
+        betas.push('extended-cache-ttl-2025-04-11')
+    }
+
     if(betas.length > 0){
         headers['anthropic-beta'] = betas.join(',')
     }
@@ -3324,6 +3452,7 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
     if(db.usePlainFetch){
         headers['anthropic-dangerous-direct-browser-access'] = 'true'
     }
+
 
     if(arg.previewBody){
         return {
@@ -3654,6 +3783,14 @@ async function requestClaude(arg:RequestDataArgumentExtended):Promise<requestDat
                 thinking = true
             }
             resText += '\n{{redacted_thinking}}\n'
+        }
+        if(content.type === 'tool_use'){
+            const toolCall:ToolCall = {
+                arguments: content.input,
+                name: content.name
+            }
+
+            resText += `<tool_call>${JSON.stringify(toolCall)}</tool_call>`
         }
     }
 

@@ -3,7 +3,7 @@ import { getCurrentCharacter, getCurrentChat, getDatabase, setCurrentCharacter, 
 import { tokenize } from "../tokenizer";
 import { getModuleTriggers } from "./modules";
 import { get } from "svelte/store";
-import { ReloadGUIPointer, selectedCharID } from "../stores.svelte";
+import { ReloadChatPointer, ReloadGUIPointer, selectedCharID } from "../stores.svelte";
 import { processMultiCommand } from "./command";
 import { parseKeyValue, sleep } from "../util";
 import { alertError, alertInput, alertNormal, alertSelect } from "../alert";
@@ -12,7 +12,7 @@ import { HypaProcesser } from "./memory/hypamemory";
 import { requestChatData, type OpenAIChatExtra } from "./request";
 import { generateAIImage } from "./stableDiff";
 import { writeInlayImage } from "./files/inlays";
-import { runLua } from "./lua";
+import { runScripted } from "./scriptings";
 
 
 export interface triggerscript{
@@ -37,7 +37,7 @@ export type triggerEffectV2 =   triggerV2Header|triggerV2IfVar|triggerV2Else|tri
                                 triggerV2SetCharacterDesc|triggerV2MakeArrayVar|triggerV2GetArrayVarLength|triggerV2GetArrayVar|triggerV2SetArrayVar|
                                 triggerV2PushArrayVar|triggerV2PopArrayVar|triggerV2ShiftArrayVar|triggerV2UnshiftArrayVar|triggerV2SpliceArrayVar|triggerV2GetFirstMessage|
                                 triggerV2SliceArrayVar|triggerV2GetIndexOfValueInArrayVar|triggerV2RemoveIndexFromArrayVar|triggerV2ConcatString|triggerV2GetLastUserMessage|
-                                triggerV2GetLastCharMessage|triggerV2GetAlertInput|triggerV2GetDisplayState|triggerV2SetDisplayState|triggerV2UpdateGUI|triggerV2Wait|
+                                triggerV2GetLastCharMessage|triggerV2GetAlertInput|triggerV2GetDisplayState|triggerV2SetDisplayState|triggerV2UpdateGUI|triggerV2UpdateChatAt|triggerV2Wait|
                                 triggerV2GetRequestState|triggerV2SetRequestState|triggerV2GetRequestStateRole|triggerV2SetRequestStateRole|triggerV2GetReuqestStateLength|triggerV2IfAdvanced|
                                 triggerV2QuickSearchChat|triggerV2StopPromptSending|triggerV2Tokenize
 
@@ -672,6 +672,12 @@ export type triggerV2UpdateGUI = {
     indent: number
 }
 
+export type triggerV2UpdateChatAt = {
+    type: 'v2UpdateChatAt',
+    index: string,
+    indent: number
+}
+
 export type triggerV2Wait = {
     type: 'v2Wait',
     value: string,
@@ -1148,7 +1154,7 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
                 }
 
                 case 'triggerlua':{
-                    const triggerCodeResult = await runLua(effect.code,{
+                    const triggerCodeResult = await runScripted(effect.code,{
                         lowLevelAccess: trigger.lowLevelAccess,
                         mode: mode === 'manual' ? arg.manualName : mode,
                         setVar: setVar,
@@ -1846,6 +1852,13 @@ export async function runTrigger(char:character,mode:triggerMode, arg:{
                 }
                 case 'v2UpdateGUI':{
                     ReloadGUIPointer.set(get(ReloadGUIPointer) + 1)
+                    break
+                }
+                case 'v2UpdateChatAt':{
+                    ReloadChatPointer.update((v) => {
+                        v[effect.index] = (v[effect.index] ?? 0) + 1
+                        return v
+                    })
                     break
                 }
                 case 'v2Wait':{

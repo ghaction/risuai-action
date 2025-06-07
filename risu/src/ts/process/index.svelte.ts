@@ -26,7 +26,7 @@ import { addRerolls } from "./prereroll";
 import { runImageEmbedding } from "./transformers";
 import { hanuraiMemory } from "./memory/hanuraiMemory";
 import { hypaMemoryV2 } from "./memory/hypav2";
-import { runLuaEditTrigger } from "./lua";
+import { runLuaEditTrigger } from "./scriptings";
 import { getGlobalChatVar, parseChatML } from "../parser.svelte";
 import { getModelInfo, LLMFlags } from "../model/modellist";
 import { hypaMemoryV3 } from "./memory/hypav3";
@@ -57,6 +57,14 @@ export interface OpenAIChatFull extends OpenAIChat{
         name: string
         arguments:string
     }
+    tool_calls?:{
+        function: {
+            name: string
+            arguments:string
+        }
+        id:string
+        type:'function'
+    }[]
 }
 
 export interface requestTokenPart{
@@ -1431,6 +1439,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{
                 time: Date.now(),
                 generationInfo,
                 promptInfo,
+                chatId: generationId,
             })
         }
         DBState.db.characters[selectedChar].chats[selectedChat].isStreaming = true
@@ -1512,6 +1521,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{
                     time: Date.now(),
                     generationInfo,
                     promptInfo,
+                    chatId: generationId,
                 }       
                 if(inlayResult.promise){
                     const p = await inlayResult.promise
@@ -1526,6 +1536,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{
                     time: Date.now(),
                     generationInfo,
                     promptInfo,
+                    chatId: generationId,
                 })
                 const ind = DBState.db.characters[selectedChar].chats[selectedChat].message.length - 1
                 if(inlayResult.promise){

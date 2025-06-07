@@ -316,6 +316,8 @@ export const languageKorean = {
         "v2GetDisplayStateDesc": "현재 디스플레이 테이터 가져오기 => {{outputVar}}",
         "v2UpdateGUI": "GUI 업데이트",
         "v2UpdateGUIDesc": "GUI 업데이트",
+        "v2UpdateChatAt": "인덱스의 채팅 업데이트",
+        "v2UpdateChatAtDesc": "{{index}}의 채팅 다시 그리기",
         "v2Wait": "기다리기",
         "v2WaitDesc": "{{value}} 초 기다리기",
         "v2GetRequestState": "리퀘스트 데이터 내용 가져오기",
@@ -358,6 +360,7 @@ export const languageKorean = {
     "authorNote": "작가의 노트",
     "firstMessage": "첫 메시지",
     "description": "설명",
+    "note": "메모",
     "jailbreakToggle": "탈옥 토글",
     "charIcon": "캐릭터 아이콘",
     "characterDisplay": "캐릭터 디스플레이",
@@ -997,4 +1000,6 @@ export const languageKorean = {
     "promptInfoEmptyText": "저장된 프롬프트 텍스트가 없습니다.",
     "escapeOutput": "출력 이스케이프",
     "claudeBatching": "Claude 배칭",
+    "folderNameInput": "새 폴더 이름을 입력해주세요",
+    "folderRemoveLengthError": "폴더를 제거하려면 폴더가 비어 있어야 합니다.",
 }
