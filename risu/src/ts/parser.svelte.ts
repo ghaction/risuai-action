@@ -16,6 +16,9 @@ import hljs from 'highlight.js/lib/core'
 import 'highlight.js/styles/atom-one-dark.min.css'
 import { language } from 'src/lang';
 import airisu from '../etc/airisu.cbs?raw'
+import cbsIntro from '../etc/docs/cbs_intro.cbs?raw'
+import cbsDocs from '../etc/docs/cbs_docs.cbs?raw'
+import docsText from '../etc/docs/docs_text.cbs?raw'
 import { getModelInfo } from './model/modellist';
 
 const markdownItOptions = {
@@ -68,6 +71,9 @@ DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
             if(data.attrValue){
                 data.attrValue = data.attrValue.split(' ').map((v) => {
                     if(v.startsWith('hljs')){
+                        return v
+                    }
+                    if(v.startsWith('x-risu-')){
                         return v
                     }
                     return "x-risu-" + v
@@ -584,9 +590,11 @@ export interface simpleCharacterArgument{
     triggerscript?: triggerscript[]
 }
 
-function parseThoughts(data:string){
+function parseThoughtsAndTools(data:string){
     return data.replace(/<Thoughts>(.+)<\/Thoughts>/gms, (full, txt) => {
         return `<details><summary>${language.cot}</summary>${txt}</details>`
+    }).replace(/<tool_call>(.+?)<\/tool_call>/gms, (full, txt:string) => {
+        return `<div class="x-risu-tool-call">🛠️ ${language.toolCalled.replace('{{tool}}',txt.split('\uf100')?.[1] ?? 'unknown')}</div>\n\n`
     })
 }
 
@@ -620,7 +628,7 @@ export async function ParseMarkdown(
 
     data = await parseInlayAssets(data ?? '')
 
-    data = parseThoughts(data)
+    data = parseThoughtsAndTools(data)
 
     data = encodeStyle(data)
     if(mode === 'normal'){
@@ -669,7 +677,7 @@ function decodeStyleRule(rule:CssAtRuleAST){
                 let slt:string = rule.selectors[i]
                 if(slt){
                     let selectors = (slt.split(' ') ?? []).map((v) => {
-                        if(v.startsWith('.')){
+                        if(v.startsWith('.') && !v.startsWith('.x-risu-')){
                             return ".x-risu-" + v.substring(1)
                         }
                         return v
@@ -706,7 +714,10 @@ function decodeStyle(text:string){
                 }
                 ast.stylesheet.rules = rules
             }
-            return `<style>${css.stringify(ast)}</style>`
+            return `<style>${css.stringify(ast, {
+                indent: '',
+                compress: true,
+            })}</style>`
 
         } catch (error) {
             if(DBState.db.returnCSSError){
@@ -1916,6 +1927,15 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
                 //these SHOULD NOT be used in any other place, and SHOULD NOT be documented 
                 case '__assistantprompt':{
                     return risuChatParser(airisu)
+                }
+                case '__cbsintro':{
+                    return risuChatParser(cbsIntro).replaceAll('[[', '\uE9B8\uE9B8').replaceAll(']]', '\uE9B9\uE9B9')
+                }
+                case '__cbsdocs':{
+                    return risuChatParser(cbsDocs).replaceAll('[[', '\uE9B8\uE9B8').replaceAll(']]', '\uE9B9\uE9B9')
+                }
+                case '__doc':{
+                    return risuChatParser(docsText).replaceAll('[[', '\uE9B8\uE9B8').replaceAll(']]', '\uE9B9\uE9B9')
                 }
             }
         }
