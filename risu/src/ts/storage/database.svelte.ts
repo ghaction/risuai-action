@@ -13,7 +13,7 @@ import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../process/memory/hypav3'
 
-export let appVer = "163.0.1"
+export let appVer = "163.1.1"
 export let webAppSubVer = ''
 
 
@@ -505,6 +505,7 @@ export function setDatabase(data:Database){
     data.vertexAccessTokenExpires ??= 0
     data.vertexClientEmail ??= ''
     data.vertexPrivateKey ??= ''
+    data.vertexRegion ??= 'global'
     data.seperateParametersEnabled ??= false
     data.seperateParameters ??= {
         memory: {},
@@ -954,6 +955,7 @@ export interface Database{
     vertexClientEmail: string
     vertexAccessToken: string
     vertexAccessTokenExpires: number
+    vertexRegion: string
     seperateParametersEnabled:boolean
     seperateParameters:{
         memory: SeparateParameters,
