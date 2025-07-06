@@ -459,7 +459,7 @@ export async function saveDb(){
  */
 async function getDbBackups() {
     let db = getDatabase()
-    if(db?.account?.useSync){
+    if(db?.account?.useSync && !isTauri && !isNodeServer){
         return []
     }
     if(isTauri){
@@ -983,6 +983,14 @@ async function fetchWithProxy(url: string, arg: GlobalFetchArgs): Promise<Global
       "Content-Type": arg.body instanceof URLSearchParams ? "application/x-www-form-urlencoded" : "application/json",
       ...(arg.useRisuToken && { "x-risu-tk": "use" }),
     };
+
+    // Add risu-auth header for Node.js server
+    if (isNodeServer) {
+      const auth = localStorage.getItem('risuauth');
+      if (auth) {
+        headers["risu-auth"] = auth;
+      }
+    }
 
     const body = arg.body instanceof URLSearchParams ? arg.body.toString() : JSON.stringify(arg.body);
 
@@ -2056,11 +2064,13 @@ export async function fetchNative(url:string, arg:{
                 "risu-header": encodeURIComponent(JSON.stringify(headers)),
                 "risu-url": encodeURIComponent(url),
                 "Content-Type": "application/json",
-                "x-risu-tk": "use"
+                "x-risu-tk": "use",
+                ...(isNodeServer && localStorage.getItem('risuauth') ? { "risu-auth": localStorage.getItem('risuauth') } : {})
             }: {
                 "risu-header": encodeURIComponent(JSON.stringify(headers)),
                 "risu-url": encodeURIComponent(url),
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                ...(isNodeServer && localStorage.getItem('risuauth') ? { "risu-auth": localStorage.getItem('risuauth') } : {})
             },
             method: arg.method,
             signal: arg.signal

@@ -17,6 +17,7 @@
     import { alertClear, alertConfirm, alertNormal, alertRequestData, alertWait } from "../../ts/alert"
     import { ParseMarkdown, type CbsConditions, type simpleCharacterArgument } from "../../ts/parser.svelte"
     import { getCurrentCharacter, getCurrentChat, setCurrentChat, type MessageGenerationInfo } from "../../ts/storage/database.svelte"
+    import { selectedCharID } from "../../ts/stores.svelte"
     import { HideIconStore, ReloadGUIPointer, selIdState } from "../../ts/stores.svelte"
     import AutoresizeArea from "../UI/GUI/TextAreaResizable.svelte"
     import ChatBody from './ChatBody.svelte'
@@ -24,7 +25,7 @@
     let translating = $state(false)
     let editMode = $state(false)
     let statusMessage:string = $state('')
-    let retranslate = false
+    let retranslate = $state(false)
     interface Props {
         message?: string;
         name?: string;
@@ -200,8 +201,12 @@
             <button class="text-sm p-1 text-textcolor2 border-darkborderc float-end mr-2 my-1
                             hover:ring-darkbutton hover:ring rounded-md hover:text-textcolor transition-all flex justify-center items-center" 
                     onclick={() => {
+                        const currentGenerationInfo = idx >= 0 ? 
+                            DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].message[idx].generationInfo :
+                            messageGenerationInfo
+
                         alertRequestData({
-                            genInfo: messageGenerationInfo,
+                            genInfo: currentGenerationInfo,
                             idx: idx,
                         })
                     }}
@@ -217,7 +222,6 @@
                             hover:ring-darkbutton hover:ring rounded-md hover:text-textcolor transition-all flex justify-center items-center" 
                     onclick={() => {
                         retranslate = true
-                        $ReloadGUIPointer = $ReloadGUIPointer + 1
                     }}
             >
                 <RefreshCcwIcon size={20} />
@@ -260,7 +264,8 @@
                     {name}
                     role={role ?? null}
                     bind:translated={translated}
-                    bind:translating={translating} />
+                    bind:translating={translating}
+                    bind:retranslate={retranslate} />
             {/key}
         </span>
     {/if}
@@ -785,11 +790,10 @@
             <span class="flex flex-col ml-4 w-full max-w-full min-w-0 text-black">
                 <div class="flexium items-center chat-width">
                     {#if DBState.db.characters[selIdState.selId]?.chaId === "§playground" && !blankMessage}
-                        <span class="chat-width text-xl border-darkborderc flex items-center">
-                            <span>{name === 'assistant' ? 'Assistant' : 'User'}</span>
+                        <span class="chat-width text-xl border-darkborderc flex items-center text-textcolor">
+                            <span>{DBState.db.characters[selIdState.selId].chats[DBState.db.characters[selIdState.selId].chatPage].message[idx].role === 'char' ? 'Assistant' : 'User'}</span>
                             <button class="ml-2 text-textcolor2 hover:text-textcolor" onclick={() => {
                                 DBState.db.characters[selIdState.selId].chats[DBState.db.characters[selIdState.selId].chatPage].message[idx].role = DBState.db.characters[selIdState.selId].chats[DBState.db.characters[selIdState.selId].chatPage].message[idx].role === 'char' ? 'user' : 'char'
-                                DBState.db.characters[selIdState.selId].chats[DBState.db.characters[selIdState.selId].chatPage] = DBState.db.characters[selIdState.selId].chats[DBState.db.characters[selIdState.selId].chatPage]
                             }}><ArrowLeftRightIcon size="18" /></button>
                         </span>
                     {:else if !blankMessage && !$HideIconStore}

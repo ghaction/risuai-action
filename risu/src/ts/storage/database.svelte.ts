@@ -13,7 +13,7 @@ import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../process/memory/hypav3'
 
-export let appVer = "163.1.1"
+export let appVer = "164.0.0"
 export let webAppSubVer = ''
 
 
@@ -537,6 +537,7 @@ export function setDatabase(data:Database){
         )
     }
     data.hypaV3PresetId ??= 0
+    data.showDeprecatedTriggerV2 ??= false
     data.returnCSSError ??= true
     data.useExperimentalGoogleTranslator ??= false
     if(data.antiClaudeOverload){ //migration
@@ -568,6 +569,7 @@ export function setDatabase(data:Database){
     data.customModels ??= []
     data.authRefreshes ??= []
     data.rememberToolUsage ??= true
+    data.simplifiedToolUse ??= false
     //@ts-ignore
     if(!globalThis.__NODE__ && !window.__TAURI_INTERNALS__){
         //this is intended to forcely reduce the size of the database in web
@@ -991,6 +993,7 @@ export interface Database{
     bulkEnabling:boolean
     showTranslationLoading: boolean
     showDeprecatedTriggerV1:boolean
+    showDeprecatedTriggerV2:boolean
     returnCSSError:boolean
     useExperimentalGoogleTranslator:boolean
     thinkingTokens: number
@@ -1052,6 +1055,7 @@ export interface Database{
     claudeBatching:boolean
     claude1HourCaching:boolean
     rememberToolUsage:boolean
+    simplifiedToolUse:boolean
 }
 
 interface SeparateParameters{
@@ -1578,6 +1582,12 @@ export interface MessageGenerationInfo{
     inputTokens?: number
     outputTokens?: number
     maxContext?: number
+    stageTiming?: {
+        stage1?: number
+        stage2?: number
+        stage3?: number
+        stage4?: number
+    }
 }
 
 export interface MessagePresetInfo{
