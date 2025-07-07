@@ -524,7 +524,7 @@ async function getClosestMatch(char: simpleCharacterArgument|character, name:str
 }
 
 //Levenshtein distance, new with 1d array
-function getDistance(a:string, b:string) {
+export function getDistance(a:string, b:string) {
     const h = a.length + 1
     const w = b.length + 1
     let d = new Int16Array(h * w)
@@ -1375,6 +1375,23 @@ function basicMatcher (p1:string,matcherArg:matcherArg,vars:{[key:string]:string
             //since desc is already used for other things, we can't use simplified name
             case ';':{ // ;
                 return '\uE9BF'
+            }
+
+            case 'chardisplayasset':{
+                const selchar = db.characters[get(selectedCharID)]
+
+                if(!selchar.prebuiltAssetCommand){
+                    return makeArray([])
+                }
+
+                const excludes = selchar.prebuiltAssetExclude ?? []
+                const arr = (selchar?.additionalAssets ?? []).filter((f) => {
+                    return !excludes.includes(f[1])
+                })
+
+                return makeArray(arr.map((f) => {
+                    return f[0]
+                }))
             }
             
         }

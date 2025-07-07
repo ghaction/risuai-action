@@ -13,7 +13,7 @@ import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../process/memory/hypav3'
 
-export let appVer = "164.0.0"
+export let appVer = "164.1.0"
 export let webAppSubVer = ''
 
 
@@ -1242,6 +1242,9 @@ export interface character{
     translatorNote?:string
     doNotChangeSeperateModels?:boolean
     escapeOutput?:boolean
+    prebuiltAssetCommand?:boolean
+    prebuiltAssetStyle?:string
+    prebuiltAssetExclude?:string[]
 }
 
 
@@ -1316,6 +1319,9 @@ export interface groupChat{
     utilityBot?:boolean
     license?:string
     realmId:string
+    prebuiltAssetCommand?:boolean
+    prebuiltAssetStyle?:string
+    prebuiltAssetExclude?:string[]
 }
 
 export interface botPreset{
