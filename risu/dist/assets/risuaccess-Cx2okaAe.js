@@ -1,4 +1,4 @@
-import{D as l,e as y,p as h,f,l as m}from"./index-D9O45HMT.js";import{M as g}from"./internalmcp-DdY9hgYk.js";class T extends g{constructor(){const r=`
+import{D as l,e as y,p as h,f,l as m}from"./index-BMbBqpwc.js";import{M as g}from"./internalmcp-DdY9hgYk.js";class T extends g{constructor(){const r=`
 <About Risuai Features>
 Regex Scripts are used to replace text in the chat based on regex patterns.
 Each script has the following fields:
