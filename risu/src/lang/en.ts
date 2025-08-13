@@ -1320,6 +1320,8 @@ export const languageEnglish = {
     requestLocation: "Request Location",
     newImageHandlingBeta: "New Image Handling (Beta)",
     settingsExported: "Settings for bug report exported and copied to clipboard.",
+    hideErrorDetails: "Hide Error Details",
+    showErrorDetails: "Show Error Details",
     dynamicOutput: "Dynamic Output",
     autoAdjustSchema: "Auto Adjust Schema",
     dynamicMessages: "Dynamic Messages",
@@ -1327,5 +1329,6 @@ export const languageEnglish = {
     dynamicResponseTiming: "Dynamic Response Timing",
     showTypingEffect: "Show Typing Effect",
     dynamicRequest: "Dynamic Request",
-    dynamicOutputPrompt: "Dynamic Output Prompt"
+    dynamicOutputPrompt: "Dynamic Output Prompt",
+    nightlyWarning: "## Nightly Builds\n\nYou are connecting to a nightly build of the software. This version is meant for testing and most likely contains bugs. **In this version, even if you encounter issues, we do not support resolving them directly.**"
 }
