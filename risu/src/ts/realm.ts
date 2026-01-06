@@ -1,8 +1,8 @@
-import { get } from "svelte/store";
 import { exportCharacterCard } from "./characterCards";
-import { VirtualWriter, isTauri, openURL } from "./globalApi.svelte";
+import { VirtualWriter } from "./globalApi.svelte";
 import { getCurrentCharacter, getDatabase, type character } from "./storage/database.svelte";
 import { alertStore } from "./alert";
+import { asBuffer } from "./util";
 
 let pong = false;
 
@@ -25,12 +25,12 @@ export async function shareRealmCardData():Promise<{ name: ArrayBuffer; data: Ar
         msg: ''
     })
     return {
-        name: namebuf.buffer,
-        data: writer.buf.buffer.buffer
+        name: asBuffer(namebuf.buffer),
+        data: asBuffer(writer.buf.buffer.buffer)
     }
 }
 
-export async function openRealm(name:string,data:ArrayBuffer) {
+export function openRealm(name:string,data:ArrayBuffer) {
     const tk = getDatabase()?.account?.token;
     const id = getDatabase()?.account?.id
     const trimedName = name.replace(/[^a-zA-Z0-9]/g, '') || 'character';

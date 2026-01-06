@@ -1,7 +1,4 @@
-import { runTrigger } from "./process/triggers";
 import { sleep } from "./util";
-import { getCurrentCharacter, getCurrentChat, setCurrentChat } from "./storage/database.svelte";
-import { runLuaButtonTrigger } from "./process/scriptings";
 import { globalFetch } from "./globalApi.svelte";
 
 let bgmElement:HTMLAudioElement|null = null;
@@ -103,7 +100,7 @@ let lastClaudeObserverPayload:any = null;
 let lastClaudeObserverHeaders:any = null;
 let lastClaudeObserverURL:any = null;
 
-export async function registerClaudeObserver(arg:{
+export function registerClaudeObserver(arg:{
     url:string,
     body:any,
     headers:any,
@@ -117,7 +114,7 @@ export async function registerClaudeObserver(arg:{
     claudeObserver()
 }
 
-async function claudeObserver(){
+function claudeObserver(){
     if(claudeObserverRunning){
         return
     }
@@ -136,7 +133,7 @@ async function claudeObserver(){
         }
     }
 
-    const func = async ()=>{       
+    const func = ()=>{       
         //request every 4 minutes and 30 seconds
         if(lastClaudeObserverLoad > Date.now() - 1000 * 60 * 4.5){
             return

@@ -1,8 +1,7 @@
-import { get } from "svelte/store";
 import { getDatabase } from "./database.svelte";
 import { alertNormal } from "../alert";
 import { language } from "src/lang";
-import { isNodeServer, isTauri } from "../globalApi.svelte";
+import { isTauri, isNodeServer, isFirefox } from "src/ts/platform"
 
 async function requestPersistantStorageMain() {
     
@@ -13,7 +12,7 @@ async function requestPersistantStorageMain() {
         }
 
         //if is chromium
-        //@ts-ignore
+        //@ts-expect-error window.chrome is Chromium-specific property, not defined in Window interface
         const isChromium = window.chrome;
         if (isChromium) {
             //chromium requires notification to persist
@@ -24,8 +23,6 @@ async function requestPersistantStorageMain() {
                 return navigator.storage.persist();
             }
         }
-
-        const isFirefox = navigator.userAgent.indexOf("Firefox") !== -1;
 
         if(isFirefox) {
             //firefox can just ask for persist

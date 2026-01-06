@@ -5,13 +5,13 @@
     import Button from "../UI/GUI/Button.svelte";
     import { getRequestLog } from "src/ts/globalApi.svelte";
     import { alertMd, alertWait } from "src/ts/alert";
-    import Arcodion from "../UI/Arcodion.svelte";
+    import Accordion from "../UI/Accordion.svelte";
     import { getCharToken, getChatToken } from "src/ts/tokenizer";
     import { tokenizePreset } from "src/ts/process/prompt";
     
     import { DBState } from 'src/ts/stores.svelte';
     import TextAreaInput from "../UI/GUI/TextAreaInput.svelte";
-    import { HardDriveUploadIcon, PlusIcon, TrashIcon } from "lucide-svelte";
+    import { HardDriveUploadIcon, PlusIcon, TrashIcon } from "@lucide/svelte";
     import { selectSingleFile } from "src/ts/util";
     import { doingChat, previewFormated, previewBody, sendChat } from "src/ts/process/index.svelte";
     import SelectInput from "../UI/GUI/SelectInput.svelte";
@@ -108,7 +108,7 @@
     let autopilot = $state([])
 </script>
 
-<Arcodion styled name={"Variables"}>
+<Accordion styled name={"Variables"}>
     <div class="rounded-md border border-darkborderc grid grid-cols-2 gap-2 p-2">
         {#if DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].scriptstate &&  Object.keys(DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].scriptstate).length > 0}
             {#each Object.keys(DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].scriptstate) as key}
@@ -125,9 +125,9 @@
             <div class="p-2 text-center">No variables</div>
         {/if}
     </div>
-</Arcodion>
+</Accordion>
 
-<Arcodion styled name={"Tokens"}>
+<Accordion styled name={"Tokens"}>
     <div class="rounded-md border border-darkborderc grid grid-cols-2 gap-2 p-2">
         {#await getCharToken(DBState.db.characters[$selectedCharID])}
             <span>Character Persistant</span>
@@ -158,9 +158,9 @@
         {/if}
     </div>
     <span class="text-sm text-textcolor2">This is a estimate. The actual token count may be different.</span>
-</Arcodion>
+</Accordion>
 
-<Arcodion styled name={"Autopilot"}>
+<Accordion styled name={"Autopilot"}>
     <div class="flex flex-col p-2 border border-darkborderc rounded-md">
         {#each autopilot as text, i}
             <TextAreaInput bind:value={autopilot[i]} />
@@ -236,10 +236,10 @@
         }
         doingChat.set(false)
     }}>Run</Button>
-</Arcodion>
+</Accordion>
 
 
-<Arcodion styled name={"Preview Prompt"}>
+<Accordion styled name={"Preview Prompt"}>
     <span>Type</span>
     <SelectInput bind:value={previewMode}>
         <OptionInput value="chat">Chat</OptionInput>
@@ -265,9 +265,9 @@
         <OptionInput value="prompt">As Request</OptionInput>
     </SelectInput>
     <Button className="mt-2" onclick={() => {preview()}}>Run</Button>
-</Arcodion>
+</Accordion>
 
-<Arcodion styled name={"Preview Lorebook"}>
+<Accordion styled name={"Preview Lorebook"}>
     <Button className="mt-2" onclick={async () => {
         const lorebookResult = await loadLoreBookV3Prompt()
         const html = `
@@ -299,7 +299,7 @@
         `.trim()
         alertMd(html)
     }}>Match Sources</Button>
-</Arcodion>
+</Accordion>
 
 <Button className="mt-2" onclick={() => {
     const modules = getModules()

@@ -5,6 +5,7 @@ import { runEmbedding } from "../transformers";
 import { globalFetch } from "src/ts/globalApi.svelte";
 import { getDatabase } from "src/ts/storage/database.svelte";
 import { appendLastPath } from "src/ts/util";
+import { isMobile } from "src/ts/platform";
 
 export interface HypaProcessorV2Options {
   model?: HypaModel;
@@ -298,15 +299,11 @@ export class HypaProcessorV2<TMetadata> {
     return `${content}|${this.options.model}${suffix}`;
   }
 
-  private async getOptimalChunkSize(): Promise<number> {
+  private getOptimalChunkSize(): number {
     // API
     if (!this.isLocalModel()) {
       return 50;
     }
-
-    const isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(
-      navigator.userAgent
-    );
 
     // WebGPU
     if ("gpu" in navigator) {

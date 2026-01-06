@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { PlusIcon, ArrowLeftIcon, DownloadIcon, UploadIcon } from "lucide-svelte";
+    import { PlusIcon, ArrowLeftIcon, DownloadIcon, UploadIcon } from "@lucide/svelte";
     import { language } from "src/lang";
     import Button from "src/lib/UI/GUI/Button.svelte";
     import CheckInput from "src/lib/UI/GUI/CheckInput.svelte";
@@ -164,7 +164,7 @@
     let effectElements = $state<HTMLButtonElement[]>([])
     let guideLineKey = $state(0)
     let selectedCategory = $state('Control')
-    let isMobile = $state(false)
+    let isMobileScreen = $state(false)
     let previousMenuMode = $state(0)    
     let menu0Container = $state<HTMLDivElement | null>(null)
     let triggerScrollRef = $state<HTMLDivElement | null>(null)
@@ -2184,12 +2184,12 @@
 
 
     onMount(() => {
-        const checkMobile = () => {
-            isMobile = window.innerWidth < 768
+        const checkMobileScreen = () => {
+            isMobileScreen = window.innerWidth < 768
         }
         
-        checkMobile()
-        window.addEventListener('resize', checkMobile)
+        checkMobileScreen()
+        window.addEventListener('resize', checkMobileScreen)
         
         window.addEventListener('keydown', handleKeydown);
         window.addEventListener('resize', updateGuideLines);
@@ -2210,7 +2210,7 @@
         document.addEventListener('contextmenu', handleGlobalContextMenu, true);
         
         return () => {
-            window.removeEventListener('resize', checkMobile)
+            window.removeEventListener('resize', checkMobileScreen)
             document.removeEventListener('click', handleGlobalClick, true);
             document.removeEventListener('contextmenu', handleGlobalContextMenu, true);
         }
@@ -2245,7 +2245,7 @@
 <Portal>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="text-textcolor absolute top-0 bottom-0 bg-black bg-opacity-50 max-w-full w-full h-full z-40 flex justify-center items-center" 
+    <div class="text-textcolor absolute top-0 bottom-0 bg-black/50 max-w-full w-full h-full z-40 flex justify-center items-center" 
          onclick={(e) => {
              if (e.target === e.currentTarget) {
                  contextMenu = false
@@ -2385,7 +2385,7 @@
                 <div class="pr-2 md:w-96 flex flex-col md:h-full mt-2 md:mt-0">
                     <div class="flex-1 flex flex-col overflow-y-auto" bind:this={triggerScrollRef} onscroll={scrollManager.handleTriggerScroll} 
                          ondragover={(e) => {
-                             if (!isMobile && isDragging && triggerScrollRef) {
+                             if (!isMobileScreen && isDragging && triggerScrollRef) {
                                  const rect = e.currentTarget.getBoundingClientRect()
                                  const autoScrollDirection = scrollManager.checkAutoScrollZone(e.clientY, rect)
                                  
@@ -2397,7 +2397,7 @@
                              }
                          }}
                          ondragleave={(e) => {
-                             if (!isMobile) {
+                             if (!isMobileScreen) {
                                  const rect = e.currentTarget.getBoundingClientRect()
                                  const mouseX = e.clientX
                                  const mouseY = e.clientY
@@ -2414,19 +2414,19 @@
                                 <!-- Header, skip the first trigger -->
                             {:else}
                                                         <div class="w-full h-0.5 min-h-0.5 transition-all duration-200" 
-                            class:hover:bg-gray-600={!isMobile && !isDragging}
+                            class:hover:bg-gray-600={!isMobileScreen && !isDragging}
                             class:h-0.5={!isDragging || dragOverIndex !== i}
                             class:h-1={isDragging && dragOverIndex === i}
                             class:bg-blue-500={isDragging && dragOverIndex === i}
                             class:shadow-lg={isDragging && dragOverIndex === i}
                             role="listitem"
                             ondragover={(e) => {
-                                if (!isMobile) {
+                                if (!isMobileScreen) {
                                     e.preventDefault()
                                 }
                             }} 
                             ondrop={(e) => {
-                                if (!isMobile) {
+                                if (!isMobileScreen) {
                                     handleTriggerDrop(i, e)
                                     dragOverIndex = -1
                                 }
@@ -2435,17 +2435,17 @@
                                 
                                 <button
                                     class="p-2 text-start trigger-item select-none"
-                                    class:hover:cursor-grab={!isMobile}
-                                    class:active:cursor-grabbing={!isMobile}
+                                    class:hover:cursor-grab={!isMobileScreen}
+                                    class:active:cursor-grabbing={!isMobileScreen}
                                     class:text-textcolor2={!isTriggerSelected(i) && selectedIndex !== i}
                                     class:text-textcolor={isTriggerSelected(i) || selectedIndex === i}
                                     class:hover:text-textcolor={!isTriggerSelected(i) && selectedIndex !== i}
                                     class:bg-darkbg={selectedIndex === i && !isMultipleSelected()}
                                     class:bg-selected={isTriggerSelected(i)}
                                     style="user-select: none;"
-                                    draggable={!isMobile}
+                                    draggable={!isMobileScreen}
                                     ondragstart={(e) => {
-                                        if (isMobile) {
+                                        if (isMobileScreen) {
                                             e.preventDefault()
                                             return
                                         }
@@ -2459,7 +2459,7 @@
                                         } else {
                                             dragElement.textContent = trigger?.comment || 'Unnamed Trigger'
                                         }
-                                        dragElement.className = 'absolute -top-96 -left-96 px-4 py-2 bg-darkbg text-textcolor2 rounded text-sm whitespace-nowrap shadow-lg pointer-events-none z-50'
+                                        dragElement.className = 'absolute -top-96 -left-96 px-4 py-2 bg-darkbg text-textcolor2 rounded-sm text-sm whitespace-nowrap shadow-lg pointer-events-none z-50'
                                         document.body.appendChild(dragElement)
                                         e.dataTransfer?.setDragImage(dragElement, 10, 10)
                                         
@@ -2473,7 +2473,7 @@
                                         scrollManager.stopAutoScroll()
                                     }}
                                     ondragover={(e) => {
-                                        if (!isMobile) {
+                                        if (!isMobileScreen) {
                                             e.preventDefault()
                                             const rect = e.currentTarget.getBoundingClientRect()
                                             const mouseY = e.clientY
@@ -2487,7 +2487,7 @@
                                         }
                                     }}
                                     ondragleave={(e) => {
-                                        if (!isMobile) {
+                                        if (!isMobileScreen) {
                                             const rect = e.currentTarget.getBoundingClientRect()
                                             const mouseX = e.clientX
                                             const mouseY = e.clientY
@@ -2499,7 +2499,7 @@
                                         }
                                     }}
                                     ondrop={(e) => {
-                                        if (!isMobile) {
+                                        if (!isMobileScreen) {
                                             handleTriggerDrop(dragOverIndex, e)
                                             dragOverIndex = -1
                                         }
@@ -2518,20 +2518,20 @@
                         {/each}
                         
                         <div class="w-full h-0.5 min-h-0.5 transition-all duration-200" 
-                            class:hover:bg-gray-600={!isMobile && !isDragging}
+                            class:hover:bg-gray-600={!isMobileScreen && !isDragging}
                             class:h-0.5={!isDragging || dragOverIndex !== value.length}
                             class:h-1={isDragging && dragOverIndex === value.length}
                             class:bg-blue-500={isDragging && dragOverIndex === value.length}
                             class:shadow-lg={isDragging && dragOverIndex === value.length}
                             role="listitem"
                             ondragover={(e) => {
-                                if (!isMobile) {
+                                if (!isMobileScreen) {
                                     e.preventDefault()
                                     dragOverIndex = value.length
                                 }
                             }} 
                             ondrop={(e) => {
-                                if (!isMobile) {
+                                if (!isMobileScreen) {
                                     handleTriggerDrop(value.length, e)
                                     dragOverIndex = -1
                                 }
@@ -2585,9 +2585,9 @@
                         selectMode = 1
                         selectedEffectIndex = -1
                     }}>
-                        <div class="p-2 flex flex-col h-full min-h-[4.5rem]">
+                        <div class="p-2 flex flex-col h-full min-h-18">
                             <span class="block text-textcolor2">{language.name}</span>
-                            <div class="flex-1 min-h-[2.5rem] flex">
+                            <div class="flex-1 min-h-10 flex">
                                 <TextInput className="flex-1" value={value && value[selectedIndex] ? (value[selectedIndex].comment || '') : ''} onchange={(e) => {
                                 if (!value || !value[selectedIndex] || selectedIndex < 0 || selectedIndex >= value.length) return;
                                 const comment = e.currentTarget.value
@@ -2605,10 +2605,10 @@
                             }} />
                             </div>
                         </div>
-                        <div class="p-2 flex flex-col h-full min-h-[4.5rem]">
+                        <div class="p-2 flex flex-col h-full min-h-18">
                             <span class="block text-textcolor2">{language.triggerOn}</span>
                             {#if value && value[selectedIndex] && selectedIndex >= 0 && selectedIndex < value.length}
-                                <div class="flex-1 min-h-[2.5rem] flex">
+                                <div class="flex-1 min-h-10 flex">
                                     <SelectInput className="flex-1" bind:value={value[selectedIndex].type}>
                                     <OptionInput value="start">{language.triggerStart}</OptionInput>
                                     <OptionInput value="output">{language.triggerOutput}</OptionInput>
@@ -2633,7 +2633,7 @@
                     <div class="border border-darkborderc mx-2 mb-2 rounded-md flex-1 overflow-x-hidden overflow-y-auto relative" bind:this={menu0Container}
                          onscroll={scrollManager.handleMenu0Scroll}
                          ondragover={(e) => {
-                             if (!isMobile && isEffectDragging && menu0Container) {
+                             if (!isMobileScreen && isEffectDragging && menu0Container) {
                                  const rect = e.currentTarget.getBoundingClientRect()
                                  const autoScrollDirection = scrollManager.checkAutoScrollZone(e.clientY, rect)
                                  
@@ -2645,7 +2645,7 @@
                              }
                          }}
                          ondragleave={(e) => {
-                             if (!isMobile && isEffectDragging) {
+                             if (!isMobileScreen && isEffectDragging) {
                                  const rect = e.currentTarget.getBoundingClientRect()
                                  const mouseX = e.clientX
                                  const mouseY = e.clientY
@@ -2691,19 +2691,19 @@
                         
                         {#each (value && value[selectedIndex] && value[selectedIndex].effect) ? value[selectedIndex].effect : [] as effect, i}
                             <div class="w-full h-0.5 min-h-0.5 transition-all duration-200" 
-                                class:hover:bg-gray-600={!isMobile && !isEffectDragging}
+                                class:hover:bg-gray-600={!isMobileScreen && !isEffectDragging}
                                 class:h-0.5={!isEffectDragging || effectDragOverIndex !== i}
                                 class:h-1={isEffectDragging && effectDragOverIndex === i}
                                 class:bg-blue-500={isEffectDragging && effectDragOverIndex === i}
                                 class:shadow-lg={isEffectDragging && effectDragOverIndex === i}
                                 role="listitem"
                                 ondragover={(e) => {
-                                    if (!isMobile && isEffectDragging) {
+                                    if (!isMobileScreen && isEffectDragging) {
                                         e.preventDefault()
                                     }
                                 }} 
                                 ondrop={(e) => {
-                                    if (!isMobile && isEffectDragging) {
+                                    if (!isMobileScreen && isEffectDragging) {
                                         handleEffectDrop(i, e)
                                         effectDragOverIndex = -1
                                     }
@@ -2714,7 +2714,7 @@
                                 class:hover:bg-selected={selectedEffectIndex !== i}
                                 class:bg-selected={selectedEffectIndex === i}
                                 ondragover={(e) => {
-                                    if (!isMobile && isEffectDragging) {
+                                    if (!isMobileScreen && isEffectDragging) {
                                         e.preventDefault()
                                         const rect = e.currentTarget.getBoundingClientRect()
                                         const mouseY = e.clientY
@@ -2728,7 +2728,7 @@
                                     }
                                 }}
                                 ondragleave={(e) => {
-                                    if (!isMobile && isEffectDragging) {
+                                    if (!isMobileScreen && isEffectDragging) {
                                         const rect = e.currentTarget.getBoundingClientRect()
                                         const mouseX = e.clientX
                                         const mouseY = e.clientY
@@ -2740,7 +2740,7 @@
                                     }
                                 }}
                                 ondrop={(e) => {
-                                    if (!isMobile && isEffectDragging) {
+                                    if (!isMobileScreen && isEffectDragging) {
                                         handleEffectDrop(effectDragOverIndex, e)
                                         effectDragOverIndex = -1
                                     }
@@ -2771,7 +2771,7 @@
                                 
                                 {#if effect.type !== 'v2EndIndent' && effect.type !== 'v2Else'}
                                     <div class="w-8 h-full flex items-center justify-center cursor-move opacity-30 hover:opacity-70 transition-opacity"
-                                         draggable={!isMobile}
+                                         draggable={!isMobileScreen}
                                          onclick={(e) => {
                                              e.stopPropagation();
                                          }}
@@ -2780,7 +2780,7 @@
                                              e.preventDefault();
                                          }}
                                          ondragstart={(e) => {
-                                             if (isMobile) {
+                                             if (isMobileScreen) {
                                                  e.preventDefault()
                                                  return
                                              }
@@ -2790,7 +2790,7 @@
                                              
                                              const dragElement = document.createElement('div')
                                              dragElement.textContent = formatEffectDisplay(effect).replace(/<[^>]*>/g, '') || 'Effect'
-                                             dragElement.className = 'absolute -top-96 -left-96 px-4 py-2 bg-darkbg text-textcolor2 rounded text-sm whitespace-nowrap shadow-lg pointer-events-none z-50'
+                                             dragElement.className = 'absolute -top-96 -left-96 px-4 py-2 bg-darkbg text-textcolor2 rounded-sm text-sm whitespace-nowrap shadow-lg pointer-events-none z-50'
                                              document.body.appendChild(dragElement)
                                              e.dataTransfer?.setDragImage(dragElement, 10, 10)
                                              
@@ -2814,19 +2814,19 @@
                         {/each}
                         
                         <div class="w-full h-0.5 min-h-0.5 transition-all duration-200" 
-                            class:hover:bg-gray-600={!isMobile && !isEffectDragging}
+                            class:hover:bg-gray-600={!isMobileScreen && !isEffectDragging}
                             class:h-0.5={!isEffectDragging || effectDragOverIndex !== (value && value[selectedIndex] && value[selectedIndex].effect ? value[selectedIndex].effect.length : 0)}
                             class:h-1={isEffectDragging && effectDragOverIndex === (value && value[selectedIndex] && value[selectedIndex].effect ? value[selectedIndex].effect.length : 0)}
                             class:bg-blue-500={isEffectDragging && effectDragOverIndex === (value && value[selectedIndex] && value[selectedIndex].effect ? value[selectedIndex].effect.length : 0)}
                             class:shadow-lg={isEffectDragging && effectDragOverIndex === (value && value[selectedIndex] && value[selectedIndex].effect ? value[selectedIndex].effect.length : 0)}
                             role="listitem"
                             ondragover={(e) => {
-                                if (!isMobile && isEffectDragging) {
+                                if (!isMobileScreen && isEffectDragging) {
                                     e.preventDefault()
                                 }
                             }} 
                             ondrop={(e) => {
-                                if (!isMobile && isEffectDragging) {
+                                if (!isMobileScreen && isEffectDragging) {
                                     handleEffectDrop(value && value[selectedIndex] && value[selectedIndex].effect ? value[selectedIndex].effect.length : 0, e)
                                     effectDragOverIndex = -1
                                 }

@@ -4,15 +4,15 @@ import { getDatabase } from "src/ts/storage/database.svelte"
 import { LLMFlags, LLMFormat } from "src/ts/model/modellist"
 import { strongBan, tokenizeNum } from "src/ts/tokenizer"
 import { getFreeOpenRouterModel } from "src/ts/model/openrouter"
-import { addFetchLog, fetchNative, globalFetch, isNodeServer, isTauri, textifyReadableStream } from "src/ts/globalApi.svelte"
+import { addFetchLog, fetchNative, globalFetch, textifyReadableStream } from "src/ts/globalApi.svelte"
+import { isTauri, isNodeServer, isCapacitor } from "src/ts/platform"
 import type { OpenAIChatFull } from "../index.svelte"
 import { extractJSON, getOpenAIJSONSchema } from "../templates/jsonSchema"
 import { applyChatTemplate } from "../templates/chatTemplate"
 import { supportsInlayImage } from "../files/inlays"
-import { Capacitor } from "@capacitor/core"
-import { replaceAsync, simplifySchema } from "src/ts/util"
+import { simplifySchema } from "src/ts/util"
 import { callTool, decodeToolCall, encodeToolCall } from "../mcp/mcp"
-import { alertError, alertNormal, alertWait, showHypaV2Alert } from "src/ts/alert";
+import { alertError } from "src/ts/alert";
 
 
 interface OAIResponseInputItem {
@@ -50,22 +50,6 @@ interface OAIResponseOutputToolCall {
     id: string
     status: 'in_progress'|'complete'|'error'
 }
-
-interface OaiFunctions {
-    name: string;
-    description: string;
-    parameters: {
-        type: string;
-        properties: {
-            [key:string]: {
-                type: string;
-                enum: string[]
-            };
-        };
-        required: string[];
-    };
-}
-
 
 export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<requestDataResponse>{
     let formatedChat:OpenAIChatExtra[] = []
@@ -206,7 +190,7 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
 
     if(db.newOAIHandle){
         formatedChat = formatedChat.filter(m => {
-            return m.content !== '' || (m.multimodals && m.multimodals.length > 0) || m.tool_calls
+            return m.content !== '' || (m.multimodals && m.multimodals.length > 0) || m.tool_calls || m.role === 'tool'
         })
     }
 
@@ -409,7 +393,7 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
         delete body.logit_bias
     }
 
-    if(aiModel.startsWith('gpt4o1') || arg.modelInfo.flags.includes(LLMFlags.OAICompletionTokens)){
+    if(arg.modelInfo.flags.includes(LLMFlags.OAICompletionTokens)){
         body.max_completion_tokens = body.max_tokens
         delete body.max_tokens
     }
@@ -439,8 +423,18 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
         body.transforms = db.openrouterMiddleOut ? ['middle-out'] : []
 
         if(db.openrouterProvider){
-            body.provider = {
-                order: [db.openrouterProvider]
+            const provider: typeof db.openrouterProvider = {} as typeof db.openrouterProvider;
+            if (db.openrouterProvider.order?.length) {
+                provider.order = db.openrouterProvider.order;
+            }
+            if (db.openrouterProvider.only?.length) {
+                provider.only = db.openrouterProvider.only;
+            }
+            if (db.openrouterProvider.ignore?.length) {
+                provider.ignore = db.openrouterProvider.ignore;
+            }
+            if (Object.keys(provider).length) {
+                body.provider = provider;
             }
         }
 
@@ -477,7 +471,6 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
         const keys = Object.keys(OobaBodyTemplate)
         for(const key of keys){
             if(OobaBodyTemplate[key] !== undefined && OobaBodyTemplate[key] !== null){
-                // @ts-ignore
                 body[key] = OobaBodyTemplate[key]
             }
         }
@@ -493,7 +486,6 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
                 db.proxyRequestModel?.startsWith('gpt') ||
                 (db.proxyRequestModel === 'custom' && db.customProxyRequestModel.startsWith('gpt'))
             )))){
-            // @ts-ignore
             delete body.logit_bias
         }
     }
@@ -555,10 +547,9 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
                 result: 'MultiGen mode cannot be used with tool calls. Please disable one of them.'
             }
         }
-        // @ts-ignore
         body.n = db.genTime
     }
-    let throughProxi = (!isTauri) && (!isNodeServer) && (!db.usePlainFetch) && (!Capacitor.isNativePlatform())
+    let throughProxi = (!isTauri) && (!isNodeServer) && (!db.usePlainFetch) && (!isCapacitor)
     if(arg.useStreaming){
         body.stream = true
         let urlHost = new URL(replacerURL).host
@@ -608,6 +599,7 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
             response: "Streaming",
             success: true,
             url: replacerURL,
+            status: da.status,
         })
 
         const transtream = getTranStream(arg)
@@ -666,11 +658,23 @@ export async function requestOpenAI(arg:RequestDataArgumentExtended):Promise<req
                     body[key] = JSON.parse(value)                            
                 } catch (error) {}
             }
-            else if(isNaN(parseFloat(value))){
-                body = setObjectValue(body, key, value)
+            else if((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))){
+                body = setObjectValue(body, key, value.slice(1, -1))
+            }
+            else if(value === 'true' || value === 'false'){
+                body = setObjectValue(body, key, value === 'true')
+            }
+            else if(value === 'null'){
+                body = setObjectValue(body, key, null)
             }
             else{
-                body = setObjectValue(body, key, parseFloat(value))
+                const num = Number(value)
+                if(isNaN(num)){
+                    body = setObjectValue(body, key, value)
+                }
+                else{
+                    body = setObjectValue(body, key, num)
+                }
             }
         }
     }
@@ -733,14 +737,21 @@ export async function requestHTTPOpenAI(replacerURL:string,body:any, headers:Rec
                 result = `<Thoughts>\n${reasoningContent}\n</Thoughts>\n${result}`
             }
         }
-        if(dat?.choices[0]?.reasoning_content){
-            result = `<Thoughts>\n${dat.choices[0].reasoning_content}\n</Thoughts>\n${result}`
+        // For deepseek Official Reasoning Model: https://api-docs.deepseek.com/guides/thinking_mode#api-example
+        const reasoningContentField = dat?.choices[0]?.reasoning_content ?? dat?.choices[0]?.message?.reasoning_content
+        if(reasoningContentField){
+            result = `<Thoughts>\n${reasoningContentField}\n</Thoughts>\n${result}`
+        }
+        // For openrouter, https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request#response.body.choices.message.reasoning
+        if(dat?.choices?.[0]?.message?.reasoning){
+            result = `<Thoughts>\n${dat.choices[0].message.reasoning}\n</Thoughts>\n${result}`
         }
 
         return result
     }
 
     const dat = res.data as any
+
     if(res.ok){
         try {
             // Collect all tool_calls from all choices
@@ -773,11 +784,11 @@ export async function requestHTTPOpenAI(replacerURL:string,body:any, headers:Rec
                 const callCodes: string[] = []
 
                 for(const toolCall of toolCalls){
-                    if(!toolCall.function || !toolCall.function.name || !toolCall.function.arguments){
+                    if(!toolCall.function || !toolCall.function.name || toolCall.function.arguments === undefined || toolCall.function.arguments === null){
                         continue
                     }
                     try {
-                        const functionArgs = JSON.parse(toolCall.function.arguments)
+                        const functionArgs = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {}
                         if(arg.tools && arg.tools.length > 0){
                             const tool = arg.tools.find(t => t.name === toolCall.function.name)
                             if(!tool){
@@ -896,19 +907,17 @@ export async function requestHTTPOpenAI(replacerURL:string,body:any, headers:Rec
             }
         }
     }
-    else{
-        if(dat.error && dat.error.message){                    
-            return {
-                type: 'fail',
-                result: (language.errors.httpError + `${dat.error.message}`)
-            }
+    
+    if(dat.error && dat.error.message){                    
+        return {
+            type: 'fail',
+            result: (language.errors.httpError + `${dat.error.message}`)
         }
-        else{                    
-            return {
-                type: 'fail',
-                result: (language.errors.httpError + `${JSON.stringify(res.data)}`)
-            }
-        }
+    }
+
+    return {
+        type: 'fail',
+        result: (language.errors.httpError + `${JSON.stringify(res.data)}`)
     }
 }
 
@@ -1060,16 +1069,78 @@ export async function requestOpenAIResponseAPI(arg:RequestDataArgumentExtended):
         store: false
     }, ['temperature', 'top_p'], {}, arg.mode)
 
+    let requestURL = arg.customURL ?? "https://api.openai.com/v1/responses"
+    if(arg.modelInfo?.endpoint){
+        requestURL = arg.modelInfo.endpoint
+    }
+
+    let risuIdentify = false
+    if(requestURL.startsWith("risu::")){
+        risuIdentify = true
+        requestURL = requestURL.replace("risu::", '')
+    }
+
+    if(aiModel === 'reverse_proxy' && db.autofillRequestUrl){
+        try{
+            const url = new URL(requestURL)
+            const pathSegments = url.pathname.split('/').filter(Boolean)
+            const lastSegment = pathSegments[pathSegments.length - 1] ?? ''
+
+            if(url.searchParams.has('api-version') && url.pathname.includes('/responses')){
+                // Azure-style Responses API URL already includes the endpoint
+            }
+            else if(lastSegment === 'responses'){
+                // keep as-is
+            }
+            else if(lastSegment === 'v1'){
+                url.pathname = url.pathname.replace(/\/?$/, '/responses')
+            }
+            else{
+                url.pathname = url.pathname.replace(/\/?$/, '/v1/responses')
+            }
+
+            requestURL = url.toString()
+        }
+        catch{
+            const [baseURL, query] = requestURL.split('?', 2)
+            let nextURL = baseURL
+            const pathSegments = nextURL.split('/').filter(Boolean)
+            const lastSegment = pathSegments[pathSegments.length - 1] ?? ''
+            const hasApiVersion = query?.includes('api-version=')
+
+            if(hasApiVersion && nextURL.includes('/responses')){
+                // Azure-style Responses API URL already includes the endpoint
+            }
+            else if(lastSegment === 'responses'){
+                // keep as-is
+            }
+            else if(lastSegment === 'v1'){
+                nextURL += nextURL.endsWith('/') ? 'responses' : '/responses'
+            }
+            else{
+                nextURL += nextURL.endsWith('/') ? 'v1/responses' : '/v1/responses'
+            }
+
+            requestURL = query ? `${nextURL}?${query}` : nextURL
+        }
+    }
+
+    const headers = {
+        "Authorization": "Bearer " + (arg.key ?? db.openAIKey),
+        "Content-Type": "application/json"
+    }
+
+    if(risuIdentify){
+        headers["X-Proxy-Risu"] = 'RisuAI'
+    }
+
     if(arg.previewBody){
         return {
             type: 'success',
             result: JSON.stringify({
-                url: "https://api.openai.com/v1/responses",
+                url: requestURL,
                 body: body,
-                headers: {
-                    "Authorization": "Bearer " + (arg.key ?? db.openAIKey),
-                    "Content-Type": "application/json"
-                }
+                headers: headers
             })
         }
     }
@@ -1078,12 +1149,9 @@ export async function requestOpenAIResponseAPI(arg:RequestDataArgumentExtended):
         body.tools.push('web_search_preview')
     }
 
-    const response = await globalFetch("https://api.openai.com/v1/responses", {
+    const response = await globalFetch(requestURL, {
         body: body,
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + (arg.key ?? db.openAIKey),
-        },
+        headers: headers,
         chatId: arg.chatId,
         abortSignal: arg.abortSignal
     });
@@ -1095,8 +1163,7 @@ export async function requestOpenAIResponseAPI(arg:RequestDataArgumentExtended):
         }
     }
 
-    const calls = (response.data.output?.filter((m:OAIResponseOutputItem|OAIResponseOutputToolCall) => m.type === 'function_call')) as OAIResponseOutputToolCall[]
-    let result:string = (response.data.output?.find((m:OAIResponseOutputItem) => m.type === 'message') as OAIResponseOutputItem)?.content?.find(m => m.type === 'output_text')?.text
+    let result: string = (response.data.output?.find((m:OAIResponseOutputItem) => m.type === 'message') as OAIResponseOutputItem)?.content?.find(m => m.type === 'output_text')?.text
 
     if(!result){
         return {
@@ -1116,7 +1183,7 @@ function getTranStream(arg:RequestDataArgumentExtended):TransformStream<Uint8Arr
     const db = getDatabase()
 
     return new TransformStream<Uint8Array, StreamResponseChunk>({
-        async transform(chunk, control) {
+        transform(chunk, control) {
             dataUint = Buffer.from(new Uint8Array([...dataUint, ...chunk]))
             let JSONreaded:{[key:string]:string} = {}
                         try {
@@ -1368,8 +1435,9 @@ function wrapToolStream(
                                     response: "Streaming",
                                     success: true,
                                     url: replacerURL,
+                                    status: resRec.status,
                                 })
-                                
+
                                 errorFlag = false
                                 break
                             }     

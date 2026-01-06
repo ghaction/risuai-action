@@ -6,9 +6,9 @@
     import { DBState } from 'src/ts/stores.svelte';
     import CheckInput from "src/lib/UI/GUI/CheckInput.svelte";
     import { language } from "src/lang";
-    import { PlusIcon, TrashIcon } from "lucide-svelte";
+    import { PlusIcon, TrashIcon } from "@lucide/svelte";
     import TextInput from "src/lib/UI/GUI/TextInput.svelte";
-    import Arcodion from "src/lib/UI/Arcodion.svelte";
+    import Accordion from "src/lib/UI/Accordion.svelte";
     import ChatFormatSettings from "./ChatFormatSettings.svelte";
     interface Props {
         instructionMode?: boolean;
@@ -17,7 +17,7 @@
     let { instructionMode = false }: Props = $props();
 </script>
 
-<Arcodion name="Ooba Settings" styled>
+<Accordion name="Ooba Settings" styled>
     {#if instructionMode}
         <ChatFormatSettings />
     {:else}
@@ -134,7 +134,7 @@
             }} />
         </div>
         {#if DBState.db.localStopStrings}
-            <div class="flex flex-col p-2 rounded border border-selected mt-2 gap-1">
+            <div class="flex flex-col p-2 rounded-sm border border-selected mt-2 gap-1">
                 <div class="p-2">
                     <button class="font-medium flex justify-center items-center h-full cursor-pointer hover:text-green-500 w-full" onclick={() => {
                         let localStopStrings = DBState.db.localStopStrings
@@ -144,7 +144,7 @@
                 </div>
                 {#each DBState.db.localStopStrings as stopString, i}
                     <div class="flex w-full">
-                        <div class="flex-grow">
+                        <div class="grow">
                             <TextInput marginBottom bind:value={DBState.db.localStopStrings[i]} fullwidth fullh/>
                         </div>
                         <div>
@@ -159,4 +159,4 @@
             </div>
         {/if}
     {/if}
-</Arcodion>
+</Accordion>

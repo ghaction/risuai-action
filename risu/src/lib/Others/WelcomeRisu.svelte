@@ -1,11 +1,12 @@
 <script lang="ts">
-    import { Send } from "lucide-svelte";
+    import { Send } from "@lucide/svelte";
     import { changeLanguage, language } from "src/lang";
     import { setPreset } from "src/ts/storage/database.svelte";
     import { DBState } from 'src/ts/stores.svelte';
     import Chat from "../ChatScreens/Chat.svelte";
     import { prebuiltPresets } from "src/ts/process/templates/templates";
     import { updateTextThemeAndCSS } from "src/ts/gui/colorscheme";
+    import { alertError } from "src/ts/alert";
     import Airisu from '../../etc/Airisu.webp'
 
     const airisuStyle = `background: url("${Airisu}");background-size: cover;`
@@ -46,27 +47,25 @@
                 break
             }
             case 4:{
+                if(input.length === 0){
+                    break
+                }
+                if(!input.startsWith('sk-')){
+                    alertError('Invalid API key')
+                    break
+                }
                 if(provider === 'openai'){
-                    if(input.length > 0 && input.startsWith('sk-')){
-                        DBState.db.openAIKey = input
-                        step = 5
-                        input = ''
-                    }
+                    DBState.db.openAIKey = input
                 }
                 if(provider === 'openrouter'){
-                    if(input.length > 0 && input.startsWith('sk-')){
-                        DBState.db.openrouterKey = input
-                        step = 5
-                        input = ''
-                    }
+                    DBState.db.openrouterKey = input
                 }
                 if(provider === 'claude'){
-                    if(input.length > 0 && input.startsWith('sk-')){
-                        DBState.db.claudeAPIKey = input
-                        step = 5
-                        input = ''
-                    }
+                    DBState.db.claudeAPIKey = input
                 }
+                step = 5
+                input = ''
+                break
             }
         }
     }
@@ -169,10 +168,10 @@
             <div class="w-full justify-center flex mt-8 logo-animation" onanimationend={() => {
                 start = true
             }}>
-                <img src="/logo_typo_trans.png" alt="logo" class="w-full max-w-screen-sm  mb-0">
+                <img src="/logo_typo_trans.png" alt="logo" class="w-full max-w-(--breakpoint-sm)  mb-0">
             </div>
         {:else}
-            <div class="relative w-full flex-col bg-darkbg flex-grow mt-5 max-w-full p-5 rounded-t-lg overflow-x-hidden flex border-gray-800 border chat-animation overflow-y-auto">
+            <div class="relative w-full flex-col bg-darkbg grow mt-5 max-w-full p-5 rounded-t-lg overflow-x-hidden flex border-gray-800 border chat-animation overflow-y-auto">
                 {#if step === 0}
                     <h2 class="animate-bounce">Choose your language</h2>
                     <div class="flex flex-col items-start ml-2">
@@ -240,7 +239,7 @@
                                 provider = 'claude'
                                 step = 4
                             }}>
-                                <h1 class="text-2xl font-bold text-start">Claude <span class="text-sm p-1 rounded bg-blue-500 text-white">{language.recommended}</span></h1>
+                                <h1 class="text-2xl font-bold text-start">Claude <span class="text-sm p-1 rounded-sm bg-blue-500 text-white">{language.recommended}</span></h1>
                                 <span class="mt-2 text-textcolor2 text-start">{language.setup.claudeDesc}</span>
                             </button>
                             <button class="border-l-blue-500 border-l-4 p-6 flex flex-col transition-shadow hover:ring-1" onclick={() => {
@@ -324,7 +323,7 @@
                                 chatMemorySelection = 2
                                 step = 10
                             }}>
-                                <h1 class="text-2xl font-bold text-start">{language.setup.chooseCheapOrMemoryOption3} <span class="text-sm p-1 rounded bg-blue-500 text-white">{language.recommended}</span></h1>
+                                <h1 class="text-2xl font-bold text-start">{language.setup.chooseCheapOrMemoryOption3} <span class="text-sm p-1 rounded-sm bg-blue-500 text-white">{language.recommended}</span></h1>
                                 <span class="mt-2 text-textcolor2 text-start">{language.setup.chooseCheapOrMemoryOption3Desc}</span>
                             </button>
                             <button class="border-l-blue-500 border-l-4 p-6 flex flex-col transition-shadow hover:ring-1" onclick={() => {
@@ -354,7 +353,7 @@
                         <Chat name="Airisu" img={airisuStyle} message={language.setup.allDone} isLastMemory={false} />
                     {/if}
                     <div class="flex items-stretch mb-2 w-full mt-auto">
-                        <textarea class="peer focus:border-textcolor transition-colors outline-none text-textcolor p-2 min-w-0 border border-r-0 bg-transparent rounded-md rounded-r-none input-text text-xl flex-grow ml-4 border-darkborderc resize-none overflow-y-hidden overflow-x-hidden max-w-full"
+                        <textarea class="peer focus:border-textcolor transition-colors outline-hidden text-textcolor p-2 min-w-0 border border-r-0 bg-transparent rounded-md rounded-r-none input-text text-xl grow ml-4 border-darkborderc resize-none overflow-y-hidden overflow-x-hidden max-w-full"
                             bind:value={input}
                             onkeydown={(e) => {
                                 if(e.key.toLocaleLowerCase() === "enter" && (!e.shiftKey) && !e.isComposing){

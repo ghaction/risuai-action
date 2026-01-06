@@ -4,20 +4,21 @@
     import Help from "src/lib/Others/Help.svelte";
     import { selectSingleFile } from "src/ts/util";
     import { DBState, selectedCharID } from 'src/ts/stores.svelte';
-    import { isTauri, saveAsset, downloadFile } from "src/ts/globalApi.svelte";
+    import { saveAsset, downloadFile } from "src/ts/globalApi.svelte";
+    import { isTauri } from "src/ts/platform"
     import NumberInput from "src/lib/UI/GUI/NumberInput.svelte";
     import TextInput from "src/lib/UI/GUI/TextInput.svelte";
     import SelectInput from "src/lib/UI/GUI/SelectInput.svelte";
     import OptionInput from "src/lib/UI/GUI/OptionInput.svelte";
     import SliderInput from "src/lib/UI/GUI/SliderInput.svelte";
     import { getCharImage } from "src/ts/characters";
-    import Arcodion from "src/lib/UI/Arcodion.svelte";
+    import Accordion from "src/lib/UI/Accordion.svelte";
     import CheckInput from "src/lib/UI/GUI/CheckInput.svelte";
     import TextAreaInput from "src/lib/UI/GUI/TextAreaInput.svelte";
     import { untrack } from "svelte";
     import { tokenizePreset } from "src/ts/process/prompt";
     import { getCharToken } from "src/ts/tokenizer";
-    import { PlusIcon, PencilIcon, TrashIcon, DownloadIcon, HardDriveUploadIcon } from "lucide-svelte";
+    import { PlusIcon, PencilIcon, TrashIcon, DownloadIcon, HardDriveUploadIcon } from "@lucide/svelte";
     import { alertError, alertInput, alertConfirm, alertNormal } from "src/ts/alert";
     import { createHypaV3Preset } from "src/ts/process/memory/hypav3";
 
@@ -106,7 +107,7 @@
 {/if}
 
 {#if submenu === 3 || submenu === -1}
-    <Arcodion name={language.imageGeneration} styled disabled={submenu !== -1}>
+    <Accordion name={language.imageGeneration} styled disabled={submenu !== -1}>
         <span class="text-textcolor mt-2">{language.imageGeneration} {language.provider} <Help key="sdProvider"/></span>
         <SelectInput className="mt-2 mb-4" bind:value={DBState.db.sdProvider}>
             <OptionInput value="" >None</OptionInput>
@@ -117,6 +118,7 @@
             <OptionInput value="fal" >Fal.ai</OptionInput>
             <OptionInput value="comfyui" >ComfyUI</OptionInput>
             <OptionInput value="Imagen" >Imagen</OptionInput>
+            <OptionInput value="openai-compat" >OpenAI Compatible</OptionInput>
 
             <!-- Legacy -->
             {#if DBState.db.sdProvider === 'comfy'}
@@ -297,7 +299,7 @@
                             DBState.db.NAIImgConfig.vibe_data = undefined;
                             DBState.db.NAIImgConfig.vibe_model_selection = undefined;
                         }}
-                        class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded"
+                        class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-sm"
                     >
                         Delete
                     </button>
@@ -391,7 +393,7 @@
                                 DBState.db.NAIImgConfig.character_image = undefined;
                                 DBState.db.NAIImgConfig.character_base64image = undefined;
                             }}
-                            class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded"
+                            class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-sm"
                         >
                             Delete
                         </button>
@@ -470,7 +472,7 @@
                                 DBState.db.NAIImgConfig.image = undefined;
                                 DBState.db.NAIImgConfig.base64image = undefined;
                             }}
-                            class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded"
+                            class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-sm"
                         >
                             Delete
                         </button>
@@ -636,11 +638,39 @@
                 <OptionInput value="dont_allow" >Don't allow</OptionInput>
             </SelectInput>
         {/if}
-    </Arcodion>
+
+        {#if DBState.db.sdProvider === 'openai-compat'}
+            <span class="text-textcolor mt-2">API URL</span>
+            <TextInput size="sm" marginBottom placeholder="https://api.example.com/v1/images/generations" bind:value={DBState.db.openaiCompatImage.url}/>
+
+            <span class="text-textcolor">API Key</span>
+            <TextInput size="sm" marginBottom placeholder="sk-..." hideText={DBState.db.hideApiKey} bind:value={DBState.db.openaiCompatImage.key}/>
+
+            <span class="text-textcolor">Model</span>
+            <TextInput size="sm" marginBottom placeholder="dall-e-3" bind:value={DBState.db.openaiCompatImage.model}/>
+
+            <span class="text-textcolor">Image Size</span>
+            <SelectInput className="mb-4" bind:value={DBState.db.openaiCompatImage.size}>
+                <OptionInput value="1024x1024" >1024x1024</OptionInput>
+                <OptionInput value="1536x1024" >1536x1024</OptionInput>
+                <OptionInput value="1024x1536" >1024x1536</OptionInput>
+                <OptionInput value="512x512" >512x512</OptionInput>
+                <OptionInput value="256x256" >256x256</OptionInput>
+            </SelectInput>
+
+            <span class="text-textcolor">Quality</span>
+            <SelectInput className="mb-4" bind:value={DBState.db.openaiCompatImage.quality}>
+                <OptionInput value="auto" >Auto</OptionInput>
+                <OptionInput value="low" >Low</OptionInput>
+                <OptionInput value="medium" >Medium</OptionInput>
+                <OptionInput value="high" >High</OptionInput>
+            </SelectInput>
+        {/if}
+    </Accordion>
 {/if}
 
 {#if submenu === 1 || submenu === -1}
-<Arcodion name="TTS" styled disabled={submenu !== -1}>
+<Accordion name="TTS" styled disabled={submenu !== -1}>
     <span class="text-textcolor mt-2">Auto Speech</span>
     <CheckInput bind:check={DBState.db.ttsAutoSpeech}/>
 
@@ -662,31 +692,31 @@
     <span class="text-textcolor">fish-speech API Key</span>
     <TextInput size="sm" marginBottom bind:value={DBState.db.fishSpeechKey}/>
 
-</Arcodion>
+</Accordion>
 {/if}
 
 {#if submenu === 2 || submenu === -1}
-<Arcodion name={language.emotionImage} styled disabled={submenu !== -1}>
+<Accordion name={language.emotionImage} styled disabled={submenu !== -1}>
     <span class="text-textcolor mt-2">{language.emotionMethod}</span>
 
     <SelectInput className="mt-2 mb-4" bind:value={DBState.db.emotionProcesser}>
         <OptionInput value="submodel" >Ax. Model</OptionInput>
         <OptionInput value="embedding" >MiniLM-L6-v2</OptionInput>
     </SelectInput>
-</Arcodion>
+</Accordion>
 {/if}
 
 {#if submenu === 0 || submenu === -1}
-    <Arcodion name={language.longTermMemory} styled disabled={submenu !== -1}>
+    <Accordion name={language.longTermMemory} styled disabled={submenu !== -1}>
         <span class="text-textcolor mt-4">{language.type}</span>
 
-        <SelectInput value={
+        <SelectInput className="mb-4" value={
             DBState.db.hypaV3 ? 'hypaV3' :
             DBState.db.hypav2 ? 'hypaV2' :
             DBState.db.supaModelType !== 'none' ? 'supaMemory' :
             DBState.db.hanuraiEnable ? 'hanuraiMemory' : 'none'
         } onchange={(v) => {
-            //@ts-ignore
+            //@ts-expect-error 'value' doesn't exist on EventTarget, but target is HTMLSelectElement here
             const value = v.target.value
             if (value === 'supaMemory'){
                 DBState.db.supaModelType = 'distilbart'
@@ -728,14 +758,14 @@
         </SelectInput>
 
         {#if DBState.db.hanuraiEnable}
-            <span class="mb-2 text-textcolor2 text-sm text-wrap break-words max-w-full">{language.hanuraiDesc}</span>
+            <span class="mb-2 text-textcolor2 text-sm text-wrap wrap-break-word max-w-full">{language.hanuraiDesc}</span>
             <span>Chunk Size</span>
             <NumberInput size="sm" marginBottom bind:value={DBState.db.hanuraiTokens} min={100} />
-            <div class="flex">
+            <div class="flex mb-4">
                 <Check bind:check={DBState.db.hanuraiSplit} name="Text Spliting"/>
             </div>
         {:else if DBState.db.hypav2}
-            <span class="mb-2 text-textcolor2 text-sm text-wrap break-words max-w-full">{language.hypaV2Desc}</span>
+            <span class="mb-2 text-textcolor2 text-sm text-wrap wrap-break-word max-w-full">{language.hypaV2Desc}</span>
             <span class="text-textcolor mt-4">{language.SuperMemory} {language.model}</span>
             <SelectInput className="mt-2 mb-2" bind:value={DBState.db.supaModelType}>
                 <OptionInput value="distilbart">distilbart-cnn-6-6 (Free/Local)</OptionInput>
@@ -753,9 +783,9 @@
             <span class="text-textcolor">{language.hypaAllocatedTokens}</span>
             <NumberInput size="sm" marginBottom bind:value={DBState.db.hypaAllocatedTokens} min={100} />
         {:else if DBState.db.hypaV3}
-            <span class="max-w-full mb-6 text-sm text-wrap break-words text-textcolor2">{language.hypaV3Settings.descriptionLabel}</span>
+            <span class="max-w-full mb-6 text-sm text-wrap wrap-break-word text-textcolor2">{language.hypaV3Settings.descriptionLabel}</span>
             <span class="text-textcolor">Preset</span>
-            <select class={"border border-darkborderc focus:border-borderc rounded-md shadow-sm text-textcolor bg-transparent focus:ring-borderc focus:ring-2 focus:outline-none transition-colors duration-200 text-md px-4 py-2 mb-1"}
+            <select class={"border border-darkborderc focus:border-borderc rounded-md shadow-xs text-textcolor bg-transparent focus:ring-borderc focus:ring-2 focus:outline-hidden transition-colors duration-200 text-md px-4 py-2 mb-1"}
                 bind:value={DBState.db.hypaV3PresetId}
             >
                 {#each DBState.db.hypaV3Presets as preset, i}
@@ -889,6 +919,10 @@
                 <div class="mb-4">
                     <TextAreaInput size="sm" placeholder={language.hypaV3Settings.supaMemoryPromptPlaceHolder} bind:value={settings.summarizationPrompt} />
                 </div>
+                <span class="text-textcolor">{language.reSummarizationPrompt}</span>
+                <div class="mb-4">
+                    <TextAreaInput size="sm" placeholder={language.hypaV3Settings.supaMemoryPromptPlaceHolder} bind:value={settings.reSummarizationPrompt} />
+                </div>
                 {#await getMaxMemoryRatio() then maxMemoryRatio}
                 <span class="text-textcolor">{language.hypaV3Settings.maxMemoryTokensRatioLabel}</span>
                 <NumberInput marginBottom disabled size="sm" value={maxMemoryRatio} />
@@ -916,7 +950,7 @@
                 <div class="mb-2">
                     <Check name={language.hypaV3Settings.doNotSummarizeUserMessageLabel} bind:check={settings.doNotSummarizeUserMessage} />
                 </div>
-                <Arcodion name="Advanced Settings" styled>
+                <Accordion name="Advanced Settings" styled>
                     <div class="mb-2">
                         <Check name="Use Experimental Implementation" bind:check={settings.useExperimentalImpl} />
                     </div>
@@ -937,12 +971,12 @@
                             <Check name={language.hypaV3Settings.enableSimilarityCorrectionLabel} bind:check={settings.enableSimilarityCorrection} />
                         </div>
                     {/if}
-                </Arcodion>
+                </Accordion>
             {/if}
 
             <div class="mb-8"></div>
         {:else if (DBState.db.supaModelType !== 'none' && DBState.db.hypav2 === false && DBState.db.hypaV3 === false)}
-            <span class="mb-2 text-textcolor2 text-sm text-wrap break-words max-w-full">{language.supaDesc}</span>
+            <span class="mb-2 text-textcolor2 text-sm text-wrap wrap-break-word max-w-full">{language.supaDesc}</span>
             <span class="text-textcolor mt-4">{language.SuperMemory} {language.model}</span>
             <SelectInput className="mt-2 mb-2" bind:value={DBState.db.supaModelType}>
                 <OptionInput value="distilbart" >distilbart-cnn-6-6 (Free/Local)</OptionInput>
@@ -959,12 +993,12 @@
                 <span class="text-textcolor">{language.SuperMemory} Prompt</span>
                 <TextInput size="sm" marginBottom bind:value={DBState.db.supaMemoryPrompt} placeholder="Leave it blank to use default"/>
             {/if}
-            <div class="flex">
+            <div class="flex mb-4">
                 <Check bind:check={DBState.db.hypaMemory} name={language.enable + ' ' + language.HypaMemory}/>
             </div>
         {/if}
 
-        <span class="text-textcolor">{language.embedding}</span>
+        <span class="text-textcolor">{language.embedding} <Help key="embedding"/></span>
         <SelectInput className="mb-4" bind:value={DBState.db.hypaModel}>
             {#if 'gpu' in navigator}
                 <OptionInput value="MiniLMGPU">MiniLM L6 v2 (GPU)</OptionInput>
@@ -1000,5 +1034,5 @@
             <TextInput size="sm" marginBottom bind:value={DBState.db.hypaCustomSettings.model}/>
         {/if}
 
-    </Arcodion>
+    </Accordion>
 {/if}

@@ -66,6 +66,8 @@ export type matcherArg = {
     lowLevelAccess?: boolean
     cbsConditions: CbsConditions
     triggerId?: string
+    getNested?: () => string[]
+    setNestedRoot?: (val:string) => void
 }
 "a".toLowerCase().split('::')
 
@@ -857,7 +859,7 @@ export function registerCBS(arg:CBSRegisterArg) {
             return `<img src="/logo2.png" style="height:${size}px;width:${size}px" />`
         },
         alias: [],
-        description: 'Displays the RisuAI logo image with specified size in pixels. Default size is 45px if no argument provided. Returns HTML img element.\n\nUsage:: {{risu}} or {{risu::60}}',
+        description: 'Displays the Risuai logo image with specified size in pixels. Default size is 45px if no argument provided. Returns HTML img element.\n\nUsage:: {{risu}} or {{risu::60}}',
     });
 
     // Comparison functions
@@ -1133,7 +1135,7 @@ export function registerCBS(arg:CBSRegisterArg) {
     registerFunction({
         name: 'tonumber',
         callback: (str, matcherArg, args, vars) => {
-            return (args[0].split('').filter((v) => {
+            return ([...args[0]].filter((v) => {
                 return !isNaN(Number(v)) || v === '.'
             })).join('')
         },
@@ -2118,7 +2120,7 @@ export function registerCBS(arg:CBSRegisterArg) {
     registerFunction({
         name: 'reverse',
         callback: (str, matcherArg, args, vars) => {
-            return str.split('').reverse().join('')
+            return [...str].reverse().join('')
         },
         alias: [],
         description: 'Reverses the input string.\n\nUsage:: {{reverse::some_value}}',
@@ -2134,6 +2136,112 @@ export function registerCBS(arg:CBSRegisterArg) {
         },
         alias: [],
         description: 'A comment CBS for commenting out code. unlike {{//}}, this one is displayed in the chat.\n\nUsage:: {{comment::this is a comment}}',
+    })
+
+    registerFunction({
+        name: 'tex',
+        callback: (str, matcherArg, args, vars) => {
+            return `$$${args[0]}$$`
+        },
+        alias: ['latex', 'katex'],
+        description: 'Renders LaTeX math expressions. Wraps the input in double dollar signs for display.\n\nUsage:: {{tex::E=mc^2}}',
+    })
+
+    registerFunction({
+        name: 'ruby',
+        callback: (str, matcherArg, args, vars) => {
+            return `<ruby>${args[0]}<rp> (</rp><rt>${args[1]}</rt><rp>) </rp></ruby>`
+        },
+        alias: ['furigana'],
+        description: 'Renders ruby text (furigana) for East Asian typography. Wraps base text and ruby text in appropriate HTML tags.\n\nUsage:: {{ruby::漢字::かんじ}}',
+    })
+
+    registerFunction({
+        name: 'codeblock',
+        callback: (str, matcherArg, args, vars) => {
+            let code = args[args.length - 1]
+                .replace(/\"/g, '&quot;')
+                .replace(/\'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+
+            if(args.length > 1){
+                return `<pre-hljs-placeholder lang="${args[0]}">`+ code +'</pre-hljs-placeholder>'
+            }
+
+            return `<pre><code>${code}</code></pre>`
+        },
+        alias: [],
+        description: 'Formats text as a code block using HTML pre and code tags.\n\nUsage:: {{codeblock::some code here}}, or {{codeblock::language::some code here}} for syntax highlighting.',
+    })
+
+    
+    registerFunction({
+        name: 'bkspc',
+        callback: (str, matcherArg, args, vars) => {
+            let root = matcherArg?.getNested?.()?.[0]
+            if(!root){
+                return ''
+            }
+            root = root.trimEnd()
+
+            let trimPointer = root.length - 1
+
+            for(;trimPointer >= 0;trimPointer--){
+                const char = root[trimPointer]
+                if(trimPointer === 0){
+                    break
+                }
+                if(char === ' ' || char === '\n' || char === '\t'){
+                    break
+                }
+            }
+
+            if(trimPointer === -1){
+                trimPointer = 0
+            }
+            
+            matcherArg?.setNestedRoot(root.substring(0, trimPointer).trimEnd())
+            return ''
+        },
+        alias: [],
+        description: "Performs a backspace operation, removing the last word from the current output. Useful for correcting or modifying generated text dynamically.\n\nUsage:: hello world {{bkspc}} user → hello user",
+    })
+
+    registerFunction({
+        name: 'erase',
+        callback: (str, matcherArg, args, vars) => {
+            let root = matcherArg?.getNested?.()?.[0]
+            if(!root){
+                return ''
+            }
+            root = root.trimEnd()
+
+            let trimPointer = root.length - 1
+            let sentenceEndFound = false
+
+            for(;trimPointer >= 0;trimPointer--){
+                const char = root[trimPointer]
+                if(char === '.' || char === '!' || char === '?' || char === '\n'){
+                    sentenceEndFound = true
+                    break
+                }
+                if(trimPointer === 0){
+                    break
+                }
+            }
+
+            if(trimPointer === -1){
+                trimPointer = 0
+            }
+            else if(sentenceEndFound){
+                trimPointer += 1
+            }
+            matcherArg?.setNestedRoot(root.substring(0, trimPointer).trimEnd())
+            return ''
+        },
+        alias: [],
+        description: "performs a backspace operation, removing the last sentence from the current output. Useful for correcting or modifying generated text dynamically.\n\nUsage:: hello world. what's in {{erase}} what's up → hello world. what's up",
     })
 
     registerFunction({
@@ -2346,10 +2454,15 @@ Usage:: {{#when condition}}...{{/when}} or {{#when::not::condition}}...{{/when}}
     })
 
     registerFunction({
-        name:':each',
+        name:'#each',
         callback: 'doc_only',
-        alias: ['#each'],
-        description: 'Iterates over an array or object.\n\nUsage:: {{#each array}}...{{/each}} or {{#each object as key}}... {{slot::key}}...{{/each}}',
+        alias: [':each'],
+        description: `Iterates over an array.
+
+Operators:
+{{#each::keep A as V}} - keep whitespace handling, so it will not trim spaces inside block.
+
+Usage:: {{#each A as V}} ... {{slot::V}} ... {{/each}}`,
     })
 
     registerFunction({
@@ -2365,6 +2478,4 @@ Usage:: {{#when condition}}...{{/when}} or {{#when::not::condition}}...{{/when}}
         alias: [],
         description: 'Defines the position which can be used in various features such as @@position <positionName> decorator.\n\nUsage:: {{position::positionName}}',
     })
-
-
 }

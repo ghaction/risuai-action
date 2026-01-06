@@ -1,6 +1,5 @@
-import { get } from "svelte/store"
 import { getDatabase, saveImage, setDatabase } from "./storage/database.svelte"
-import { getUserName, selectSingleFile, sleep } from "./util"
+import { selectSingleFile, sleep } from "./util"
 import { alertError, alertNormal, alertStore } from "./alert"
 import { AppendableBuffer, downloadFile, readImage } from "./globalApi.svelte"
 import { language } from "src/lang"
@@ -18,6 +17,7 @@ export async function selectUserImg() {
     const imgp = await saveImage(img)
     db.userIcon = imgp
     db.personas[db.selectedPersona] = {
+        ...db.personas[db.selectedPersona],
         name: db.username,
         icon: db.userIcon,
         personaPrompt: db.personaPrompt,
@@ -33,7 +33,6 @@ export function saveUserPersona() {
     db.personas[db.selectedPersona].icon = db.userIcon
     db.personas[db.selectedPersona].personaPrompt = db.personaPrompt
     db.personas[db.selectedPersona].note = db.userNote
-    db.personas[db.selectedPersona].largePortrait = db.personas[db.selectedPersona]?.largePortrait
     setDatabase(db)
 }
 
@@ -59,16 +58,25 @@ interface PersonaCard {
 
 export async function exportUserPersona() {
     let db = getDatabase({ snapshot: true })
-    if (!db.userIcon) {
-        alertError(language.errors.noUserIcon)
-        return
-    }
     if ((!db.username) || (!db.personaPrompt)) {
         alertError("username or persona prompt is empty")
         return
     }
 
-    let img = await readImage(db.userIcon)
+    let img: Uint8Array
+    if (!db.userIcon) {
+        const canvas = document.createElement('canvas')
+        canvas.width = 256
+        canvas.height = 256
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = 'rgb(100, 116, 139)'
+        ctx.fillRect(0, 0, 256, 256)
+        const dataUrl = canvas.toDataURL('image/png')
+        const base64 = dataUrl.split(',')[1]
+        img = new Uint8Array(Buffer.from(base64, 'base64'))
+    } else {
+        img = await readImage(db.userIcon)
+    }
 
     let card: PersonaCard = safeStructuredClone({
         name: db.username,

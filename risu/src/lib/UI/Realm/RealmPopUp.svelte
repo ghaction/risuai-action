@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { BookIcon, FlagIcon, ImageIcon, PaperclipIcon, SmileIcon, TrashIcon } from "lucide-svelte";
+    import { BookIcon, FlagIcon, ImageIcon, PaperclipIcon, SmileIcon, TrashIcon } from "@lucide/svelte";
     import { language } from "src/lang";
     import { alertConfirm, alertInput, alertNormal } from "src/ts/alert";
     import { hubURL, type hubType, downloadRisuHub, getRealmInfo } from "src/ts/characterCards";
@@ -19,7 +19,7 @@
 
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="top-0 left-0 z-50 fixed w-full h-full bg-black bg-opacity-50 flex justify-center items-center text-textcolor" role="button" tabindex="0" onclick={() => {
+<div class="top-0 left-0 z-50 fixed w-full h-full bg-black/50 flex justify-center items-center text-textcolor" role="button" tabindex="0" onclick={() => {
     openedData = null
 }}>
     <div class="p-6 max-w-full bg-darkbg rounded-md flex flex-col gap-4 w-2xl overflow-y-auto max-h-full">
@@ -36,7 +36,13 @@
                 }}>Forked</button>
             {/if}
             <div class="flex justify-start gap-4 mt-4">
-                <img class="h-36 w-36 rounded-md object-top object-cover" alt={openedData.name} src={`${hubURL}/resource/` + openedData.img}>
+                {#if DBState.db.hideAllImages}
+                    <div class="h-36 w-36 rounded-md bg-darkbutton flex items-center justify-center text-textcolor2">
+                        <span class="text-4xl">?</span>
+                    </div>
+                {:else}
+                    <img class="h-36 w-36 rounded-md object-top object-cover" alt={openedData.name} src={`${hubURL}/resource/` + openedData.img}>
+                {/if}
                 <MultiLangDisplay value={openedData.desc} markdown={true} />
             </div>
             <RealmLicense license={openedData.license}/>
@@ -114,7 +120,7 @@
             })}>
                 <PaperclipIcon />
             </button>
-            <button class="bg-selected hover:ring flex-grow p-2 font-bold rounded-md mr-2" onclick={() => {
+            <button class="bg-selected hover:ring-3 grow p-2 font-bold rounded-md mr-2" onclick={() => {
                 downloadRisuHub(openedData.id)
                 openedData = null
             }}>

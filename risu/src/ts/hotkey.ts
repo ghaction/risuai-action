@@ -1,12 +1,11 @@
 import { get } from "svelte/store"
-import { alertMd, alertSelect, alertToast, alertWait, doingAlert } from "./alert"
+import { alertMd, alertSelect, alertToast, alertWait, doingAlert, alertRequestLogs } from "./alert"
 import { changeToPreset as changeToPreset2, getDatabase  } from "./storage/database.svelte"
 import { alertStore, MobileGUIStack, MobileSideBar, openPersonaList, openPresetList, OpenRealmStore, PlaygroundStore, QuickSettings, SafeModeStore, selectedCharID, settingsOpen } from "./stores.svelte"
 import { language } from "src/lang"
 import { updateTextThemeAndCSS } from "./gui/colorscheme"
 import { defaultHotkeys } from "./defaulthotkeys"
 import { doingChat, previewBody, sendChat } from "./process/index.svelte"
-import { getRequestLog } from "./globalApi.svelte"
 
 export function initHotkey(){
     document.addEventListener('keydown', async (ev) => {
@@ -170,7 +169,7 @@ export function initHotkey(){
                     return
                 }
                 case 'toggleLog':{
-                    alertMd(getRequestLog())
+                    alertRequestLogs()
                     break
                 }
                 case 'quickSettings':{
@@ -278,7 +277,7 @@ export function initHotkey(){
     let touchs = 0
     let touchStartTime = 0
     //check for triple touch
-    document.addEventListener('touchstart', async (ev) => {
+    document.addEventListener('touchstart', (ev) => {
         touchs++
         if(touchs > 2){
             if(Date.now() - touchStartTime > 300){

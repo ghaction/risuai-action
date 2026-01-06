@@ -1,5 +1,5 @@
 import { get, writable } from "svelte/store";
-import { type character, type MessageGenerationInfo, type Chat, type MessagePresetInfo, changeToPreset, setCurrentChat } from "../storage/database.svelte";
+import { type character, type MessageGenerationInfo, type Chat, type MessagePresetInfo, changeToPreset, setCurrentChat, type Message } from "../storage/database.svelte";
 import { DBState } from '../stores.svelte';
 import { CharEmotion, selectedCharID } from "../stores.svelte";
 import { ChatTokenizer, tokenize, tokenizeNum } from "../tokenizer";
@@ -18,7 +18,7 @@ import { groupOrder } from "./group";
 import { runTrigger } from "./triggers";
 import { HypaProcesser } from "./memory/hypamemory";
 import { additionalInformations } from "./embedding/addinfo";
-import { getInlayAsset, supportsInlayImage } from "./files/inlays";
+import { getInlayAsset } from "./files/inlays";
 import { getGenerationModelString } from "./models/modelString";
 import { connectionOpen, peerRevertChat, peerSafeCheck, peerSync } from "../sync/multiuser";
 import { runInlayScreen } from "./inlayScreen";
@@ -27,11 +27,11 @@ import { runImageEmbedding } from "./transformers";
 import { hanuraiMemory } from "./memory/hanuraiMemory";
 import { hypaMemoryV2 } from "./memory/hypav2";
 import { runLuaEditTrigger } from "./scriptings";
-import { getGlobalChatVar, parseChatML } from "../parser.svelte";
+import { parseChatML } from "../parser.svelte";
 import { getModelInfo, LLMFlags } from "../model/modellist";
 import { hypaMemoryV3 } from "./memory/hypav3";
 import { getModuleAssets, getModuleToggles } from "./modules";
-import { getFileSrc, readImage } from "../globalApi.svelte";
+import { readImage } from "../globalApi.svelte";
 
 export interface OpenAIChat{
     role: 'system'|'user'|'assistant'|'function'
@@ -205,13 +205,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{
         return v
     })
     
-// ─────────────────────────────────────────────────────────
-// Snapshot preset name & toggles before sending a message.
-// Ensures correct metadata is recorded, even if presets
-// change immediately after clicking "send".
-//
-// Used later in promptInfo assembly (e.g. promptInfo.promptText)
-// ─────────────────────────────────────────────────────────
     let promptInfo: MessagePresetInfo = {}
     let initialPresetNameForPromptInfo = null
     let initialPromptTogglesForPromptInfo: {
@@ -237,7 +230,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{
             promptToggles: initialPromptTogglesForPromptInfo,
         }
     }
-// ─────────────────────────────────────────────────────────────
 
     let currentChar:character
     let caculatedChatTokens = 0
@@ -299,28 +291,6 @@ export async function sendChat(chatProcessIndex = -1,arg:{
     let currentChat = runCurrentChatFunction(nowChatroom.chats[selectedChat])
     nowChatroom.chats[selectedChat] = currentChat
     let maxContextTokens = DBState.db.maxContext
-
-    if(DBState.db.aiModel === 'gpt35'){
-        if(maxContextTokens > 4000){
-            maxContextTokens = 4000
-        }
-    }
-    if(DBState.db.aiModel === 'gpt35_16k' || DBState.db.aiModel === 'gpt35_16k_0613'){
-        if(maxContextTokens > 16000){
-            maxContextTokens = 16000
-        }
-    }
-    if(DBState.db.aiModel === 'gpt4'){
-        if(maxContextTokens > 8000){
-            maxContextTokens = 8000
-        }
-    }
-    if(DBState.db.aiModel === 'deepai'){
-        if(maxContextTokens > 3000){
-            maxContextTokens = 3000
-        }
-    }
-
 
     chatProcessStage.set(1)
     stageTimings.stage1Start = Date.now()
@@ -761,7 +731,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{
 
     let chats:OpenAIChat[] = examples
 
-    if(!DBState.db.aiModel.startsWith('novelai')){
+    if(!DBState.db.aiModel.startsWith('novelai') || DBState.db?.promptSettings?.trimStartNewChat){
         chats.push({
             role: 'system',
             content: '[Start a new chat]',
@@ -769,7 +739,28 @@ export async function sendChat(chatProcessIndex = -1,arg:{
         })
     }
 
-    if(nowChatroom.type !== 'group'){
+    
+    let msReseted = false
+    const makeMs = (currentChat:Chat) => {
+        let mss:Message[] = []
+        msReseted = false
+        for(let i=currentChat.message.length -1;i>=0;i--){
+            const d = currentChat.message[i]
+            if(d.disabled === true){
+                continue
+            }
+            if(d.disabled === 'allBefore'){
+                msReseted = true
+                break
+            }
+            mss.unshift(d)
+        }
+        return mss
+    }
+
+    let ms:Message[] = makeMs(currentChat)
+
+    if(nowChatroom.type !== 'group' && !msReseted){
         const firstMsg = currentChat.fmIndex === -1 ? nowChatroom.firstMessage : nowChatroom.alternateGreetings[currentChat.fmIndex]
 
         const chat:OpenAIChat = {
@@ -786,14 +777,14 @@ export async function sendChat(chatProcessIndex = -1,arg:{
         chats.push(chat)
         currentTokens += await tokenizer.tokenizeChat(chat)
     }
-
-    let ms = currentChat.message
+    
+    console.log('Prepared messages for token calculation:', ms)
 
     const triggerResult = await runTrigger(currentChar, 'start', {chat: currentChat})
     if(triggerResult){
         currentChat = triggerResult.chat
         setCurrentChat(currentChat)
-        ms = currentChat.message
+        ms = makeMs(currentChat)
         currentTokens += triggerResult.tokens
         if(triggerResult.stopSending){
             doingChat.set(false)
@@ -1702,7 +1693,7 @@ export async function sendChat(chatProcessIndex = -1,arg:{
         try {
             const permission = await Notification.requestPermission()
             if(permission === 'granted'){
-                const noti = new Notification('RisuAI', {
+                const noti = new Notification('Risuai', {
                     body: result
                 })
                 noti.onclick = () => {
@@ -1861,11 +1852,18 @@ export async function sendChat(chatProcessIndex = -1,arg:{
                 maxTokens: 30,
             }, 'emotion', abortSignal)
 
-            if(rq.type === 'fail' || rq.type === 'streaming' || rq.type === 'multiline'){
+            if(rq.type === 'fail'){
                 if(abortSignal.aborted){
                     return true
                 }
-                throwError(`${rq.result}`)
+                throwError(rq.result)
+                return true
+            }
+            if(rq.type === 'streaming' || rq.type === 'multiline'){
+                if(abortSignal.aborted){
+                    return true
+                }
+                throwError('Unexpected response type')
                 return true
             }
             else{

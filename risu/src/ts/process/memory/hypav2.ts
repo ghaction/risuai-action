@@ -296,11 +296,11 @@ function cleanInvalidChunks(
     }
 }
 
-export async function regenerateSummary(
+export function regenerateSummary(
     chats: OpenAIChat[],
     data: HypaV2Data,
     mainChunkIndex: number
-) : Promise<void> {
+) : void {
     const targetMainChunk = data.mainChunks[mainChunkIndex];
 
 }
@@ -583,7 +583,7 @@ export async function hypaMemoryV2(
     await processor.addText(
         data.chunks
             .filter((v) => v.text.trim().length > 0)
-            .map((v) => searchDocumentPrefix + v.text.trim()) // sometimes this should not be used at all. RisuAI does not support embedding model that this is meaningful, isn't it?
+            .map((v) => searchDocumentPrefix + v.text.trim()) // sometimes this should not be used at all. Risuai does not support embedding model that this is meaningful, isn't it?
     );
 
     let scoredResults: { [key: string]: number } = {};

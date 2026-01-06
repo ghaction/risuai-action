@@ -1,13 +1,13 @@
 import { writable } from "svelte/store"
 import { getDatabase } from "./database.svelte"
-import { hubURL } from "../characterCards"
 import localforage from "localforage"
-import { alertLogin, alertNormalWait, alertStore, alertWait } from "../alert"
-import { AppendableBuffer, forageStorage, getUnpargeables } from "../globalApi.svelte"
+import { alertLogin, alertNormalWait, alertStore } from "../alert"
+import { forageStorage, getUnpargeables } from "../globalApi.svelte"
 import { encodeRisuSaveLegacy } from "./risuSave"
 import { v4 } from "uuid"
 import { language } from "src/lang"
 import { sleep } from "../util"
+import { fetchProtectedResource } from "../sionyw"
 
 export const AccountWarning = writable('')
 const risuSession = Date.now().toFixed(0)
@@ -36,13 +36,12 @@ export class AccountStorage{
 
             const saveDate = Date.now().toFixed(0)
 
-            da = await fetch(hubURL + '/api/account/write', {
+            da = await fetchProtectedResource('/api/account/write', {
                 method: "POST",
-                body: value,
+                body: value as any,
                 headers: {
                     'content-type': 'application/octet-stream',
                     'x-risu-key': key,
-                    'x-risu-auth': this.auth,
                     'X-Format': 'nocheck',
                     'x-risu-session': risuSession,
                     'x-risu-save-date': saveDate
@@ -85,6 +84,9 @@ export class AccountStorage{
         if(da.status < 200 || da.status >= 300){
             throw await getDaText()
         }
+        if(key.startsWith('assets/')){
+            await localforage.setItem(key, new Uint8Array(value).buffer)
+        }
         return await getDaText()
     }
     async getItem(key:string, callback?:(status:number) => void):Promise<Buffer> {
@@ -99,12 +101,11 @@ export class AccountStorage{
         const saveDate = await cachedForage.getItem(key + '__date') as number|undefined
         const perf = performance.now()
         while((!da) || da.status === 403){
-            da = await fetch(hubURL + '/api/account/read/' + Buffer.from(key ,'utf-8').toString('hex') + 
+            da = await fetchProtectedResource('/api/account/read/' + Buffer.from(key ,'utf-8').toString('hex') + 
                 (key.includes('database') ? ('|' + v4()) : ''), {
                 method: "GET",
                 headers: {
                     'x-risu-key': key,
-                    'x-risu-auth': this.auth,
                     'x-risu-save-date': (saveDate || 0).toString()
                 }
             })
@@ -156,11 +157,11 @@ export class AccountStorage{
 
         return Buffer.from(appendable)
     }
-    async keys():Promise<string[]>{
+    keys():string[]{
         let db = getDatabase()
         return getUnpargeables(db, 'pure')
     }
-    async removeItem(key:string){
+    removeItem(key:string){
         throw "Error: You cannot remove data in account. report this to dev if you found this."
     }
 

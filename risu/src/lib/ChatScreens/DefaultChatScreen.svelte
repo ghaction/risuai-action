@@ -1,9 +1,9 @@
 <script lang="ts">
 
     import Suggestion from './Suggestion.svelte';
-    import AdvancedChatEditor from './AdvancedChatEditor.svelte';
-    import { CameraIcon, DatabaseIcon, DicesIcon, GlobeIcon, ImagePlusIcon, LanguagesIcon, Laugh, MenuIcon, MicOffIcon, PackageIcon, Plus, RefreshCcwIcon, ReplyIcon, Send, StepForwardIcon, XIcon, BrainIcon } from "lucide-svelte";
-    import { selectedCharID, PlaygroundStore, createSimpleCharacter, hypaV3ModalOpen } from "../../ts/stores.svelte";
+    import { CameraIcon, DatabaseIcon, DicesIcon, GlobeIcon, ImagePlusIcon, LanguagesIcon, Laugh, MenuIcon, MicOffIcon, PackageIcon, Plus, RefreshCcwIcon, ReplyIcon, Send, StepForwardIcon, XIcon, BrainIcon, ArrowDown } from "@lucide/svelte";
+    import { selectedCharID, PlaygroundStore, createSimpleCharacter, hypaV3ModalOpen, ScrollToMessageStore, additionalChatMenu, additionalFloatingActionButtons } from "../../ts/stores.svelte";
+    import { tick } from 'svelte';
     import Chat from "./Chat.svelte";
     import { type Message } from "../../ts/storage/database.svelte";
     import { DBState } from 'src/ts/stores.svelte';
@@ -19,7 +19,7 @@
     import { stopTTS } from "src/ts/process/tts";
     import MainMenu from '../UI/MainMenu.svelte';
     import AssetInput from './AssetInput.svelte';
-    import { downloadFile } from 'src/ts/globalApi.svelte';
+    import { aiLawApplies, chatFoldedState, chatFoldedStateMessageIndex, downloadFile } from 'src/ts/globalApi.svelte';
     import { runTrigger } from 'src/ts/process/triggers';
     import { v4 } from 'uuid';
     import { PreUnreroll, Prereroll } from 'src/ts/process/prereroll';
@@ -30,6 +30,15 @@
     import { ConnectionOpenStore } from 'src/ts/sync/multiuser';
     import { coldStorageHeader, preLoadChat } from 'src/ts/process/coldstorage.svelte';
     import Chats from './Chats.svelte';
+    import Button from '../UI/GUI/Button.svelte';
+    import PluginDefinedIcon from '../Others/PluginDefinedIcon.svelte';
+
+    
+    interface Props {
+        openModuleList?: boolean;
+        openChatList?: boolean;
+        customStyle?: string;
+    }
 
     let messageInput:string = $state('')
     let messageInputTranslate:string = $state('')
@@ -42,9 +51,87 @@
     let doingChatInputTranslate = false
     let toggleStickers:boolean = $state(false)
     let fileInput:string[] = $state([])
-
+    let showNewMessageButton = $state(false)
+    let chatsInstance: any = $state()
+    let isScrollingToMessage = $state(false)
+    let { openModuleList = $bindable(false), openChatList = $bindable(false), customStyle = '' }: Props = $props();
     let currentCharacter = $derived(DBState.db.characters[$selectedCharID])
     let currentChat = $derived(currentCharacter?.chats[currentCharacter.chatPage]?.message ?? [])
+
+    function scrollToBottom() {
+        chatsInstance?.scrollToLatestMessage();
+    }
+    $effect(() => {
+        if(ScrollToMessageStore.value !== -1){
+            const index = ScrollToMessageStore.value
+            ScrollToMessageStore.value = -1
+            scrollToMessage(index)
+        }
+    })
+
+    async function scrollToMessage(index: number){
+        // Forces the loading of past messages not rendered on the screen
+        isScrollingToMessage = true
+        try {
+            const totalMessages = currentChat.length
+            const neededLoadPages = totalMessages - index + 5
+
+            if(loadPages < neededLoadPages){
+                loadPages = neededLoadPages
+                await tick()
+            }
+
+            let element: Element | null = null;
+            // Poll for element existence (max 5 seconds)
+            for(let i = 0; i < 50; i++){
+                element = document.querySelector(`[data-chat-index="${index}"]`)
+                if(element) break;
+                await sleep(100)
+            }
+
+            const preIndex = Math.max(0, index - 3)
+            const preElement = document.querySelector(`[data-chat-index="${preIndex}"]`)
+            if(preElement){
+                preElement.scrollIntoView({behavior: "instant", block: "start"})
+            } else {
+                element?.scrollIntoView({behavior: "instant", block: "start"})
+            }
+            await sleep(50)
+
+            if(element){
+                // Wait for images to load to prevent layout shift
+                const chatContainer = document.querySelector('.default-chat-screen');
+                if(chatContainer) {
+                    const images = Array.from(chatContainer.querySelectorAll('img'));
+                    const promises = images.map(img => {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(resolve => {
+                            img.onload = () => resolve(null);
+                            img.onerror = () => resolve(null);
+                        });
+                    });
+                    // Wait for all images or timeout after 4 seconds
+                    await Promise.race([
+                        Promise.all(promises),
+                        sleep(4000)
+                    ]);
+                }
+
+                element.scrollIntoView({behavior: "instant", block: "start"})
+                
+                // Small delay and scroll again to ensure position is correct after any final layout adjustments
+                await sleep(50)
+                element.scrollIntoView({behavior: "instant", block: "start"})
+
+                element.classList.add('ring-2', 'ring-blue-500')
+                setTimeout(() => {
+                    element.classList.remove('ring-2', 'ring-blue-500')
+                }, 2000)
+            }
+        } finally {
+            isScrollingToMessage = false
+        }
+    }
 
     async function send(){
         return sendMain(false)
@@ -261,12 +348,6 @@
         }
     }
 
-    interface Props {
-        openModuleList?: boolean;
-        openChatList?: boolean;
-        customStyle?: string;
-    }
-
     let { userIconPortrait, currentUsername, userIcon } = $derived.by(() => {
         const bindedPersona = DBState?.db?.characters?.[$selectedCharID]?.chats?.[DBState?.db?.characters?.[$selectedCharID]?.chatPage]?.bindedPersona
 
@@ -289,7 +370,6 @@
         }
     })
 
-    let { openModuleList = $bindable(false), openChatList = $bindable(false), customStyle = '' }: Props = $props();
     let inputHeight = $state("44px")
     let inputEle:HTMLTextAreaElement = $state()
     let inputTranslateHeight = $state("44px")
@@ -420,12 +500,65 @@
             alertError("Error while taking screenshot")
         }
     }
+
+    
 </script>
+
+
+
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="w-full h-full" style={customStyle} onclick={() => {
+<div class="w-full h-full relative" style={customStyle} onclick={() => {
     openMenu = false
 }}>
+    
+    {#if showNewMessageButton}
+        {#if (DBState.db.newMessageButtonStyle === 'bottom-center' || !DBState.db.newMessageButtonStyle)}
+            <button class="absolute bottom-16 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 hover:bg-blue-600 transition-colors" onclick={scrollToBottom}>
+                <ArrowDown size={16} />
+                <span>{language.newMessage}</span>
+            </button>
+        {/if}
+
+        {#if DBState.db.newMessageButtonStyle === 'bottom-right'}
+            <button class="absolute bottom-20 right-4 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 hover:bg-blue-600 transition-colors" onclick={scrollToBottom}>
+                <ArrowDown size={16} />
+                <span>{language.newMessage}</span>
+            </button>
+        {/if}
+
+        {#if DBState.db.newMessageButtonStyle === 'bottom-left'}
+            <button class="absolute bottom-20 left-4 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 hover:bg-blue-600 transition-colors" onclick={scrollToBottom}>
+                <ArrowDown size={16} />
+                <span>{language.newMessage}</span>
+            </button>
+        {/if}
+
+        {#if DBState.db.newMessageButtonStyle === 'floating-circle'}
+            <button class="absolute bottom-36 right-4 bg-blue-500 text-white w-12 h-12 rounded-full shadow-lg z-50 flex items-center justify-center hover:bg-blue-600 transition-colors" onclick={scrollToBottom} title="4. 원형 (우하단)">
+                <ArrowDown size={20} />
+            </button>
+        {/if}
+
+        {#if DBState.db.newMessageButtonStyle === 'right-center'}
+            <button class="absolute top-1/2 right-2 -translate-y-1/2 bg-blue-500 text-white px-2 py-3 rounded-l-lg shadow-lg z-50 flex flex-col items-center gap-1 hover:bg-blue-600 transition-colors" onclick={scrollToBottom}>
+                <ArrowDown size={14} />
+                <span class="text-xs writing-mode-vertical">{language.newMessage}</span>
+            </button>
+        {/if}
+
+        {#if DBState.db.newMessageButtonStyle === 'top-bar'}
+            <button class="absolute top-2 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-6 py-1.5 rounded-full shadow-lg z-50 flex items-center gap-2 hover:bg-blue-600 transition-colors text-sm" onclick={scrollToBottom}>
+                <ArrowDown size={14} />
+                <span>{language.newMessage}</span>
+            </button>
+        {/if}
+    {/if}
+    {#if isScrollingToMessage}
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 text-white text-xl font-bold backdrop-blur-sm">
+            Loading...
+        </div>
+    {/if}
     {#if $selectedCharID < 0}
         {#if $PlaygroundStore === 0}
             <MainMenu />
@@ -433,11 +566,18 @@
             <PlaygroundMenu />
         {/if}
     {:else}
-        <div class="h-full w-full flex flex-col-reverse overflow-y-auto relative default-chat-screen"  onscroll={(e) => {
-            //@ts-ignore  
+        <div class="h-full w-full flex flex-col-reverse overflow-y-auto relative default-chat-screen" onscroll={(e) => {
+            //@ts-expect-error scrollHeight/clientHeight/scrollTop don't exist on EventTarget, but target is HTMLElement here
             const scrolled = (e.target.scrollHeight - e.target.clientHeight + e.target.scrollTop)
             if(scrolled < 100 && DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].message.length > loadPages){
                 loadPages += 15
+            }
+            const chatTarget = e.target as HTMLElement;
+            const chatsContainer = (DBState.db.fixedChatTextarea && chatTarget.children[1]) ? chatTarget.children[1] : chatTarget.children[0];
+            const lastEl = chatsContainer?.firstElementChild;
+            const isAtBottom = lastEl ? lastEl.getBoundingClientRect().top <= chatTarget.getBoundingClientRect().bottom + 100 : true;
+            if(isAtBottom){
+                showNewMessageButton = false;
             }
         }}>
             <div
@@ -451,8 +591,7 @@
                     </div>
                 {/if}
 
-                {#if !DBState.db.useAdvancedEditor}
-                <textarea class="peer text-input-area focus:border-textcolor transition-colors outline-none text-textcolor p-2 min-w-0 border border-r-0 bg-transparent rounded-md rounded-r-none input-text text-xl flex-grow ml-4 border-darkborderc resize-none overflow-y-hidden overflow-x-hidden max-w-full"
+                <textarea class="peer text-input-area focus:border-textcolor transition-colors outline-hidden text-textcolor p-2 min-w-0 border border-r-0 bg-transparent rounded-md rounded-r-none input-text text-xl grow ml-4 border-darkborderc resize-none overflow-y-hidden overflow-x-hidden max-w-full placeholder:text-sm"
                           bind:value={messageInput}
                           bind:this={inputEle}
                           onkeydown={(e) => {
@@ -489,18 +628,20 @@
                                     reader.onload = async (e) => {
                                         const buf = e.target?.result as ArrayBuffer
                                         const uint8 = new Uint8Array(buf)
-                                        const res = await postChatFile({
+                                        const results = await postChatFile({
                                             name: file.name,
                                             data: uint8
                                         })
-                                        if(res?.type === 'asset'){
-                                            fileInput.push(res.data)
-                                            updateInputSizeAll()
+                                        if(!results) return
+                                        for(const res of results){
+                                            if(res?.type === 'asset'){
+                                                fileInput.push(res.data)
+                                            }
+                                            if(res?.type === 'text'){
+                                                messageInput += `{{file::${res.name}::${res.data}}}`
+                                            }
                                         }
-                                        if(res?.type === 'text'){
-                                            messageInput += `{{file::${res.name}::${res.data}}}`
-                                            updateInputSizeAll()
-                                        }
+                                        updateInputSizeAll()
                                     }
                                     reader.readAsArrayBuffer(file)
                                 }
@@ -510,12 +651,6 @@
                           oninput={()=>{updateInputSizeAll();updateInputTransateMessage(false)}}
                           style:height={inputHeight}
                 ></textarea>
-                {:else}
-                    <AdvancedChatEditor
-                            bind:value={messageInput}
-                            bind:translate={messageInputTranslate}
-                    />
-                {/if}
 
 
                 {#if $doingChat || doingChatInputTranslate}
@@ -561,12 +696,12 @@
                     </div>
                 {/if}
             </div>
-            {#if DBState.db.useAutoTranslateInput && !DBState.db.useAdvancedEditor && DBState.db.characters[$selectedCharID]?.chaId !== '§playground'}
+            {#if DBState.db.useAutoTranslateInput && DBState.db.characters[$selectedCharID]?.chaId !== '§playground'}
                 <div class="flex items-center mt-2 mb-2">
                     <label for='messageInputTranslate' class="text-textcolor ml-4">
                         <LanguagesIcon />
                     </label>
-                    <textarea id = 'messageInputTranslate' class="text-textcolor rounded-md p-2 min-w-0 bg-transparent input-text text-xl flex-grow ml-4 mr-2 border-darkbutton resize-none focus:bg-selected overflow-y-hidden overflow-x-hidden max-w-full"
+                    <textarea id = 'messageInputTranslate' class="text-textcolor rounded-md p-2 min-w-0 bg-transparent input-text text-xl grow ml-4 mr-2 border-darkbutton resize-none focus:bg-selected overflow-y-hidden overflow-x-hidden max-w-full"
                               bind:value={messageInputTranslate}
                               bind:this={inputTranslateEle}
                               onkeydown={(e) => {
@@ -656,8 +791,20 @@
                     <div></div>
                 {/await}
             {:else}
+
+            {#if chatFoldedStateMessageIndex.index !== -1}
+                <button class="w-full flex justify-center max-w-full p-4">
+                    <Button className="max-w-xl w-full" onclick={() => {
+                        loadPages += chatFoldedStateMessageIndex.index + 1
+                        chatFoldedState.data = null
+                    }}>
+                        {language.loadMore}
+                    </Button>
+                </button>
+            {/if}
             
             <Chats
+                bind:this={chatsInstance}
                 messages={currentChat}
                 loadPages={loadPages}
                 onReroll={reroll}
@@ -665,6 +812,8 @@
                 currentCharacter={currentCharacter}
                 currentUsername={currentUsername}
                 userIcon={userIcon}
+                userIconPortrait={userIconPortrait}
+                bind:hasNewUnreadMessage={showNewMessageButton}
             />
 
             {#if DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].message.length <= loadPages}
@@ -711,6 +860,11 @@
                         totalPages={DBState.db.characters[$selectedCharID].alternateGreetings.length + 1}
 
                     />
+                    {#if (aiLawApplies() && DBState.db.characters[$selectedCharID].chats[DBState.db.characters[$selectedCharID].chatPage].message.length === 0)}
+                        <div class="ml-auto mr-auto mt-4 text-textcolor2 italic max-w-2/3 wrap-break-word text-center">
+                            {language.aiGenerationWarning}
+                        </div>
+                    {/if}
                     {#if !DBState.db.characters[$selectedCharID].removedQuotes && DBState.db.characters[$selectedCharID].creatorNotes.length >= 2}
                         <CreatorQuote quote={DBState.db.characters[$selectedCharID].creatorNotes} onRemove={() => {
                             const cha = DBState.db.characters[$selectedCharID]
@@ -771,6 +925,17 @@
                         </div>
                     {/if}
 
+                    {#each additionalChatMenu as menu}
+                        <div class="mt-2"></div>
+                        <div class="flex items-center cursor-pointer hover:text-green-500 transition-colors" onclick={() => {
+                            menu.callback()
+                            openMenu = false
+                        }}>
+                            <PluginDefinedIcon ico={menu} />
+                            <span class="ml-2">{menu.name}</span>
+                        </div>
+                    {/each}
+
                     {#if DBState.db.showMenuHypaMemoryModal}
                         {#if (DBState.db.supaModelType !== 'none' && DBState.db.hypav2) || DBState.db.hypaV3}
                             <div class="flex items-center cursor-pointer hover:text-green-500 transition-colors" onclick={() => {
@@ -813,15 +978,17 @@
                     </div>
 
                     <div class="flex items-center cursor-pointer hover:text-green-500 transition-colors" onclick={async () => {
-                        const res = await postChatFile(messageInput)
-                        if(res?.type === 'asset'){
-                            fileInput.push(res.data)
-                            updateInputSizeAll()
+                        const results = await postChatFile(messageInput)
+                        if(!results) return
+                        for(const res of results){
+                            if(res?.type === 'asset'){
+                                fileInput.push(res.data)
+                            }
+                            if(res?.type === 'text'){
+                                messageInput += `{{file::${res.name}::${res.data}}}`
+                            }
                         }
-                        if(res?.type === 'text'){
-                            messageInput += `{{file::${res.name}::${res.data}}}`
-                            updateInputSizeAll()
-                        }
+                        updateInputSizeAll()
                     }}>
 
                         <ImagePlusIcon />
@@ -859,6 +1026,18 @@
 
     {/if}
 </div>
+
+{#if additionalFloatingActionButtons.length > 0}
+    <div class="fixed top-4 right-4 flex flex-col gap-3 z-50">
+        {#each additionalFloatingActionButtons as button}
+            <button class="bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 hover:bg-blue-600 transition-colors" onclick={() => {
+                button.callback()
+            }}>
+                <PluginDefinedIcon ico={button} />
+            </button>
+        {/each}
+    </div>
+{/if}
 <style>
 
     .chat-process-stage-1{

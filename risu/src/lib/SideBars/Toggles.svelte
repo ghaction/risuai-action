@@ -4,7 +4,7 @@
     import { parseToggleSyntax, type sidebarToggle, type sidebarToggleGroup } from "src/ts/util";
     import { language } from "src/lang";
     import type { character, groupChat } from "src/ts/storage/database.svelte";
-    import Arcodion from '../UI/Arcodion.svelte'
+    import Accordion from '../UI/Accordion.svelte'
     import CheckInput from "../UI/GUI/CheckInput.svelte";
     import SelectInput from "../UI/GUI/SelectInput.svelte";
     import OptionInput from "../UI/GUI/OptionInput.svelte";
@@ -42,9 +42,9 @@
     {#each items as toggle, index}
         {#if toggle.type === 'group' && toggle.children.length > 0}
             <div class="w-full">
-                <Arcodion styled name={toggle.value}>
+                <Accordion styled name={toggle.value}>
                     {@render toggles((toggle as sidebarToggleGroup).children, reverse)}
-                </Arcodion>
+                </Accordion>
             </div>
         {:else if toggle.type === 'select'}
             <div class="w-full flex gap-2 mt-2 items-center" class:justify-end={$MobileGUI} >
@@ -67,7 +67,7 @@
                     {#if toggle.value}
                         <span class="shrink-0">{toggle.value}</span>
                     {/if}
-                    <hr class="border-t border-darkborderc m-0 flex-grow" />
+                    <hr class="border-t border-darkborderc m-0 grow" />
                 </div>
             {/if}
         {:else}
@@ -81,7 +81,7 @@
 {/snippet}
 
 {#if !noContainer && groupedToggles.length > 4}
-    <div class="h-48 border-darkborderc p-2 border rounded flex flex-col items-start mt-2 overflow-y-auto">
+    <div class="h-48 border-darkborderc p-2 border rounded-sm flex flex-col items-start mt-2 overflow-y-auto">
         <div class="flex mt-2 items-center w-full" class:justify-end={$MobileGUI}>
             <CheckInput bind:check={DBState.db.jailbreakToggle} name={language.jailbreakToggle} reverse />
         </div>

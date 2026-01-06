@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { DynamicGUI, settingsOpen, sideBarStore, ShowRealmFrameStore, openPresetList, openPersonaList, MobileGUI, CustomGUISettingMenuStore, loadedStore, alertStore, LoadingStatusState } from './ts/stores.svelte';
+    import { DynamicGUI, settingsOpen, sideBarStore, ShowRealmFrameStore, openPresetList, openPersonaList, MobileGUI, CustomGUISettingMenuStore, loadedStore, alertStore, LoadingStatusState, bookmarkListOpen, popupStore } from './ts/stores.svelte';
     import Sidebar from './lib/SideBars/Sidebar.svelte';
     import { DBState } from './ts/stores.svelte';
     import ChatScreen from './lib/ChatScreens/ChatScreen.svelte';
@@ -7,8 +7,13 @@
     import RealmPopUp from './lib/UI/Realm/RealmPopUp.svelte';
     import GridChars from './lib/Others/GridCatalog.svelte';
     import WelcomeRisu from './lib/Others/WelcomeRisu.svelte';
+    import BookmarkList from './lib/Others/BookmarkList.svelte';
     import Settings from './lib/Setting/Settings.svelte';
     import { showRealmInfoStore, importCharacterProcess } from './ts/characterCards';
+    import { importPreset, getDatabase, setDatabase } from './ts/storage/database.svelte';
+    import { readModule } from './ts/process/modules';
+    import { alertNormal } from './ts/alert';
+    import { language } from './lang';
     import RealmFrame from './lib/UI/Realm/RealmFrame.svelte';
     import SavePopupIconComp from './lib/Others/SavePopupIcon.svelte';
     import Botpreset from './lib/Setting/botpreset.svelte';
@@ -18,10 +23,12 @@
     import MobileFooter from './lib/Mobile/MobileFooter.svelte';
     import CustomGUISettingMenu from './lib/Setting/Pages/CustomGUISettingMenu.svelte';
     import { checkCharOrder } from './ts/globalApi.svelte';
-    import { ArrowUpIcon, GlobeIcon, PlusIcon } from 'lucide-svelte';
+    import { ArrowUpIcon, GlobeIcon, PlusIcon } from '@lucide/svelte';
     import { hypaV3ModalOpen, hypaV3ProgressStore } from "./ts/stores.svelte";
     import HypaV3Modal from './lib/Others/HypaV3Modal.svelte';
     import HypaV3Progress from './lib/Others/HypaV3Progress.svelte';
+    import PluginAlertModal from './lib/Others/PluginAlertModal.svelte';
+    import PopupList from './lib/UI/PopupList.svelte';
 
   
     let didFirstSetup: boolean  = $derived(DBState.db?.didFirstSetup)
@@ -35,13 +42,31 @@
     e.dataTransfer.dropEffect = 'link'
 }} ondrop={async (e) => {
     e.preventDefault()
+    if (e.dataTransfer.types.includes('application/x-risu-internal')) {
+        return
+    }
     const file = e.dataTransfer.files[0]
     if (file) {
-        await importCharacterProcess({
-            name: file.name,
-            data: file
-        })
-        checkCharOrder()
+        const name = file.name.toLowerCase()
+
+        if (name.endsWith('.risup')) {
+            const data = new Uint8Array(await file.arrayBuffer())
+            await importPreset({ name: file.name, data })
+            alertNormal(language.successImport)
+        } else if (name.endsWith('.risum')) {
+            const data = new Uint8Array(await file.arrayBuffer())
+            const module = await readModule(Buffer.from(data))
+            const db = getDatabase()
+            db.modules.push(module)
+            setDatabase(db)
+            alertNormal(language.successImport)
+        } else {
+            await importCharacterProcess({
+                name: file.name,
+                data: file
+            })
+            checkCharOrder()
+        }
     }
 }}>
     {#if aprilFools}
@@ -170,11 +195,18 @@
     {#if $openPersonaList}
         <ListedPersona close={() => {$openPersonaList = false}} />
     {/if}
+    {#if $bookmarkListOpen}
+        <BookmarkList />
+    {/if}
     {#if $hypaV3ModalOpen}
         <HypaV3Modal />
     {/if}
     <SavePopupIconComp />
     {#if $hypaV3ProgressStore.open}
         <HypaV3Progress />
+    {/if}
+    <PluginAlertModal />
+    {#if popupStore.children}
+        <PopupList />
     {/if}
 </main>

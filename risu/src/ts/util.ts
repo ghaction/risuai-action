@@ -7,10 +7,11 @@ import { readFile } from "@tauri-apps/plugin-fs"
 import { basename } from "@tauri-apps/api/path"
 import { createBlankChar, getCharImage } from "./characters"
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { isTauri } from "./globalApi.svelte"
+import { isIOS, isTauri } from "src/ts/platform"
+import type { Attachment } from "svelte/attachments"
+import { mount, unmount, type Snippet } from "svelte"
+import PopupList from "src/lib/UI/PopupList.svelte"
 const appWindow = isTauri ? getCurrentWebviewWindow() : null
-
-export const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1
 
 export interface Messagec extends Message{
     index: number
@@ -162,15 +163,12 @@ export function getUserIconProtrait(){
     }
 }
 
-export function checkIsIos(){
-    return /(iPad|iPhone|iPod)/g.test(navigator.userAgent)
-}
 export function selectFileByDom(allowedExtensions:string[], multiple:'multiple'|'single' = 'single') {
     return new Promise<null|File[]>((resolve) => {
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.multiple = multiple === 'multiple';
-        const acceptAll = (getDatabase().allowAllExtentionFiles || checkIsIos() || allowedExtensions[0] === '*')
+        const acceptAll = (getDatabase().allowAllExtentionFiles || isIOS() || allowedExtensions[0] === '*')
         if(!acceptAll){
             if (allowedExtensions && allowedExtensions.length) {
                 fileInput.accept = allowedExtensions.map(ext => `.${ext}`).join(',');
@@ -202,7 +200,7 @@ export function selectFileByDom(allowedExtensions:string[], multiple:'multiple'|
     });
 }
 
-function readFileAsUint8Array(file) {
+function readFileAsUint8Array(file: File) {
     return new Promise<Uint8Array>((resolve, reject) => {
       const reader = new FileReader();
   
@@ -212,8 +210,8 @@ function readFileAsUint8Array(file) {
         resolve(uint8Array);
       };
   
-      reader.onerror = (error) => {
-        reject(error);
+      reader.onerror = () => {
+        reject(new Error('Failed to read file', { cause: reader.error }));
       };
   
       reader.readAsArrayBuffer(file);
@@ -396,7 +394,7 @@ export async function encryptBuffer(data:Uint8Array, keys:string){
             iv: new Uint8Array(12),
         },
         key,
-        data
+        asBuffer(data)
     )
 
     return result
@@ -421,7 +419,7 @@ export async function decryptBuffer(data:Uint8Array, keys:string){
             iv: new Uint8Array(12),
         },
         key,
-        data
+        asBuffer(data)
     )
 
     return result
@@ -560,12 +558,12 @@ export function trimUntilPunctuation(s:string){
  * @returns {string} The modified URL with the last path appended.
  * 
  * @example
- * appendLastPath("https://github.com/kwaroran/RisuAI","/commits/main")
- * return 'https://github.com/kwaroran/RisuAI/commits/main'
+ * appendLastPath("https://github.com/kwaroran/Risuai","/commits/main")
+ * return 'https://github.com/kwaroran/Risuai/commits/main'
  * 
  * @example
- * appendLastPath("https://github.com/kwaroran/RisuAI/","/commits/main")
- * return 'https://github.com/kwaroran/RisuAI/commits/main
+ * appendLastPath("https://github.com/kwaroran/Risuai/","/commits/main")
+ * return 'https://github.com/kwaroran/Risuai/commits/main
  * 
  * @example
  * appendLastPath("http://127.0.0.1:7997","embeddings")
@@ -963,7 +961,7 @@ export const searchTagList = (query:string) => {
     }
     const realQuery = splited.at(-1).trim().toLowerCase()
 
-    let result = []
+    const result: string[] = []
 
     for(const tag of TagList){
         if(tag.value.startsWith(realQuery)){
@@ -1105,10 +1103,10 @@ export function pickHashRand(cid:number,word:string) {
     return randF()
 }
 
-export async function replaceAsync(string:string, regexp:RegExp, replacerFunction:Function) {
+export async function replaceAsync(string:string, regexp:RegExp, replacerFunction: (...args: string[]) => Promise<string>) {
     const replacements = await Promise.all(
         Array.from(string.matchAll(regexp),
-            match => replacerFunction(...match as any)))
+            match => replacerFunction(...(match as string[]))))
     let i = 0;
     return string.replace(regexp, () => replacements[i++])
 }
@@ -1208,4 +1206,16 @@ export const jsonOutputTrimmer = (data:string) => {
         data = data.slice(7, -3).trim()
     }
     return data.trim()
+}
+
+export function asBuffer(arr: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBuffer>;
+export function asBuffer(arr: ArrayBufferLike): ArrayBuffer;
+
+export function asBuffer(arr: Uint8Array<ArrayBufferLike> | ArrayBufferLike): Uint8Array<ArrayBuffer> | ArrayBuffer {
+    if (arr instanceof Uint8Array) {
+        return arr as unknown as Uint8Array<ArrayBuffer>;
+    }
+    else {
+        return arr as unknown as ArrayBuffer
+    }
 }

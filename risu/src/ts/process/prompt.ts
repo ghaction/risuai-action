@@ -1,6 +1,5 @@
-import { get } from "svelte/store";
 import { tokenizeAccurate } from "../tokenizer";
-import { getDatabase, presetTemplate, setDatabase, type Database } from "../storage/database.svelte";
+import { getDatabase, presetTemplate, setDatabase } from "../storage/database.svelte";
 import { alertError, alertNormal } from "../alert";
 import type { OobaChatCompletionRequestParams } from "../model/ooba";
 
@@ -14,6 +13,7 @@ export type PromptSettings = {
     utilOverride: boolean
     customChainOfThought?: boolean
     maxThoughtTagDepth?: number
+    trimStartNewChat?: boolean
 }
 
 export interface PromptItemPlain {
@@ -146,7 +146,7 @@ export function stChatConvert(pre:any){
         return pre.prompts.find((p:any) => p.identifier === identifier)
     }
 
-    for(const prompt of pre?.prompt_order?.[0]?.order){
+    for(const prompt of pre?.prompt_order?.[0]?.order ?? []){
         if(!prompt?.enabled){
             continue
         }
@@ -336,11 +336,11 @@ export function promptConvertion(files:{ name: string, content: string, type:str
             }
             let multiplier = arg.multiplier ?? 1
             if(samplers.includes(getname)){
-                //@ts-ignore
+                //@ts-expect-error dynamic key access on preset with value from parsed JSON
                 preset[setname] = data[getname] * multiplier
             }
             else{
-                // @ts-ignore
+                //@ts-expect-error dynamic key assignment to preset, -1000 indicates unset sampler
                 preset[setname] = -1000
             }
     

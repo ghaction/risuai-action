@@ -229,6 +229,7 @@ export async function sayTTS(character:character,text:string) {
             }
             case 'vits':{
                 await runVITS(text, character.vits)
+                break;
             }
             case 'gptsovits':{
                 const audioContext = new AudioContext();
@@ -410,7 +411,7 @@ export async function getVOICEVOXVoices() {
     return speakersInfo;
 }
 
-export async function getNovelAIVoices(){
+export function getNovelAIVoices(){
     return [
         {
             gender: "UNISEX",
@@ -427,7 +428,7 @@ export async function getNovelAIVoices(){
     ];
 }
 
-export async function FixNAITTS(data:character){
+export function FixNAITTS(data:character){
     if (data.naittsConfig === undefined){
         data.naittsConfig.voice = 'Anananan'
     }

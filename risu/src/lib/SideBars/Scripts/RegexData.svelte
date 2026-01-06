@@ -1,6 +1,7 @@
 <script lang="ts">
-    import { XIcon } from "lucide-svelte";
+    import { XIcon } from "@lucide/svelte";
     import { language } from "src/lang";
+    import { ReloadGUIPointer } from "src/ts/stores.svelte";
     import { alertConfirm } from "src/ts/alert";
     import type { customscript } from "src/ts/storage/database.svelte";
     import Check from "../../UI/GUI/CheckInput.svelte";
@@ -8,11 +9,10 @@
     import TextAreaInput from "../../UI/GUI/TextAreaInput.svelte";
     import SelectInput from "../../UI/GUI/SelectInput.svelte";
     import OptionInput from "../../UI/GUI/OptionInput.svelte";
-    import Arcodion from "src/lib/UI/Arcodion.svelte";
+    import Accordion from "src/lib/UI/Accordion.svelte";
   import NumberInput from "src/lib/UI/GUI/NumberInput.svelte";
-  import { ReloadGUIPointer } from "src/ts/stores.svelte";
-
-  interface Props {
+  
+interface Props {
     value: customscript;
     onRemove?: () => void;
     onClose?: () => void;
@@ -132,7 +132,7 @@
             {#if value.ableFlag}
                 <!-- <span class="text-textcolor mt-6">FLAG:</span>
                 <TextInput size="sm" bind:value={value.flag} /> -->
-                <Arcodion styled name="FLAGS">
+                <Accordion styled name="FLAGS">
                     <span class="text-textcolor mt-3">Normal Flag</span>
                     <div class="grid w-full grid-cols-2 rounded-md border border-darkborderc">
                         {#each flags as flag, i}
@@ -155,7 +155,7 @@
                         changeOrder(parseInt(e.currentTarget.value))
                     }} />
                     
-                </Arcodion>
+                </Accordion>
             {/if}
             <div class="flex items-center mt-4">
                 <Check bind:check={value.ableFlag} onChange={() => {

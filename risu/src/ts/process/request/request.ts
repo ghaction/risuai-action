@@ -16,7 +16,7 @@ import { getStopStrings, stringlizeAINChat, unstringlizeAIN, unstringlizeChat } 
 import { applyChatTemplate } from "../templates/chatTemplate";
 import { runTransformers } from "../transformers";
 import { runTrigger } from "../triggers";
-import { requestClaude } from './antrophic';
+import { requestClaude } from './anthropic';
 import { requestGoogleCloudVertex } from './google';
 import { requestOpenAI, requestOpenAILegacyInstruct, requestOpenAIResponseAPI } from "./openAI";
 
@@ -635,6 +635,8 @@ export async function requestChatDataMain(arg:requestDataArgument, model:ModelMo
             return requestWebLLM(targ)
         case LLMFormat.OpenAIResponseAPI:
             return requestOpenAIResponseAPI(targ)
+        case LLMFormat.Echo:
+            return requestEcho(targ)
     }
 
     return {
@@ -832,7 +834,7 @@ async function requestOobaLegacy(arg:RequestDataArgumentExtended):Promise<reques
         const stream = new ReadableStream({
             start(controller){
                 let readed = "";
-                oobaboogaSocket.onmessage = async (event) => {
+                oobaboogaSocket.onmessage = (event) => {
                     const json = JSON.parse(event.data);
                     if (json.event === "stream_end") {
                         close()
@@ -1039,6 +1041,21 @@ async function requestPlugin(arg:RequestDataArgumentExtended):Promise<requestDat
             result: `Plugin Error from ${db.currentPluginProvider}: ` + JSON.stringify(error),
             model: 'custom'
         }
+    }
+}
+
+async function requestEcho(arg:RequestDataArgumentExtended):Promise<requestDataResponse> {
+    const db = getDatabase()
+    const delay = db.echoDelay ?? 0
+    const message = db.echoMessage ?? "Echo Message"
+
+    if(delay > 0){
+        await sleep(delay * 1000)
+    }
+
+    return {
+        type: 'success',
+        result: message
     }
 }
 
@@ -1304,7 +1321,6 @@ async function requestCohere(arg:RequestDataArgumentExtended):Promise<requestDat
     
     if(preamble){
         if(body.chat_history.length > 0){
-            // @ts-ignore
             body.preamble = preamble
         }
         else{
