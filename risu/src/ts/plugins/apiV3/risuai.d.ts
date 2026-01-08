@@ -112,6 +112,14 @@ interface OpenAIChat {
 }
 
 /**
+ * Returned response for UI part registration
+ */
+
+interface UIPartResponse {
+    id: string;
+}
+
+/**
  * Container display mode
  */
 type ContainerMode = 'fullscreen';
@@ -653,11 +661,10 @@ interface SafeElement {
     ): Promise<void>;
 
     /**
-     * Unwraps a SafeClassArray into a standard array
-     * @param safeArray - The SafeClassArray to unwrap
-     * @returns Standard array of items
+     * Scrolls the element into view
+     * @param options - Scroll options or boolean for alignment
      */
-    unwarpSafeArray<T>(safeArray: SafeClassArray<T>): Promise<T[]>;
+    scrollIntoView(options?: boolean | ScrollIntoViewOptions): Promise<void>;
 }
 
 // ============================================================================
@@ -1117,7 +1124,7 @@ interface RisuaiPluginAPI {
      * pluginV2, personas, plugins, pluginCustomStorage, temperature, askRemoval,
      * maxContext, maxResponse, frequencyPenalty, PresensePenalty, theme,
      * textTheme, lineHeight, seperateModelsForAxModels, seperateModels,
-     * customCSS, guiHTML, colorSchemeName
+     * customCSS, guiHTML, colorSchemeName, characterOrder, selectedPersona
      *
      * @example
      * ```typescript
@@ -1178,7 +1185,7 @@ interface RisuaiPluginAPI {
         callback: () => void | Promise<void>,
         icon?: string,
         iconType?: IconType
-    ): Promise<void>;
+    ): Promise<UIPartResponse>;
 
 
     /**
@@ -1207,7 +1214,13 @@ interface RisuaiPluginAPI {
         icon: string,
         iconType: 'html'|'img'|'none',
         location?: 'action'|'chat'|'hamburger'
-    }, callback: () => void): Promise<void>;
+    }, callback: () => void): Promise<UIPartResponse>;
+
+    /**
+     * Unregisters a UI part
+     * @param id - UI part ID returned during registration
+     */
+    unregisterUIPart(id: string): Promise<void>;
 
     // ========== Provider APIs ==========
 
@@ -1366,6 +1379,18 @@ interface RisuaiPluginAPI {
         error?: string;
         timestamp: number;
     }[]|null>;
+
+    /**
+     * Checks and corrects character order in the database
+     */
+    checkCharOrder(): Promise<void>;
+
+    /**
+     * Unwraps a SafeClassArray into a standard array
+     * @param safeArray - The SafeClassArray to unwrap
+     * @returns Standard array of items
+     */
+    unwarpSafeArray<T>(safeArray: SafeClassArray<T>): Promise<T[]>;
 }
 
 // ============================================================================
