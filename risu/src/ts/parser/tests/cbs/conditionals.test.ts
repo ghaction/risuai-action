@@ -1,24 +1,17 @@
 import fc from 'fast-check'
 import { writable } from 'svelte/store'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { risuChatParser } from '../../../parser.svelte'
-import type { character } from '../../../storage/database.svelte'
+import { trimVarPrefix, validCBSArgProp } from './lib'
 
 //#region module mocks
-
-// Suppress warning
-vi.mock(import('katex'), () => ({}))
 
 vi.mock(
   import('../../../storage/database.svelte'),
   () =>
     ({
       appVer: '1234.5.67',
-      getCurrentCharacter: () =>
-        ({
-          name: '',
-          // @ts-expect-error Only fields needed in the current test suite
-        } satisfies character),
+      getCurrentCharacter: () => ({}),
       getDatabase: () => ({}),
     } as typeof import('../../../storage/database.svelte'))
 )
@@ -28,24 +21,14 @@ vi.mock(import('../../../globalApi.svelte'), () => ({
   getFileSrc: () => Promise.resolve(''),
 }))
 
-/** Returns accessed key as its value. */
-const varMapProxy = vi.hoisted(
+/** Returns accessed key as the value. */
+const varStorage = vi.hoisted(
   () =>
     new Proxy(
       {},
       {
         get(_, prop) {
-          if (typeof prop !== 'string') {
-            return 'null'
-          }
-
-          if (prop.startsWith('$')) {
-            return prop.slice(1)
-          }
-
-          if (prop.startsWith('toggle_')) {
-            return prop.slice('toggle_'.length)
-          }
+          return trimVarPrefix(prop)
         },
       }
     )
@@ -61,13 +44,13 @@ vi.mock(import('../../../stores.svelte'), () => {
             chatPage: 0,
             chats: [
               {
-                scriptstate: varMapProxy,
+                scriptstate: varStorage,
               },
             ],
             defaultVariables: '',
           },
         },
-        globalChatVariables: varMapProxy,
+        globalChatVariables: varStorage,
         templateDefaultVariables: '',
       },
     },
@@ -75,12 +58,7 @@ vi.mock(import('../../../stores.svelte'), () => {
   } as typeof import('../../../stores.svelte')
 })
 
-vi.stubGlobal('safeStructuredClone', (v: unknown) => JSON.parse(JSON.stringify(v)))
-
 //#endregion
-
-/** No hashes, colons, curly braces, line breaks */
-const validCBSArgProp = fc.stringMatching(/^[^#:{}\r\n]+$/)
 
 const template = (op: string, body: string) => `0 {{${op}}}${body}{{/}} 9`
 const quickParse = (...args: Parameters<typeof template>) => risuChatParser(template(...args))
@@ -101,19 +79,34 @@ describe('#if', () => {
   test('renders when "1" or "true"', () => {
     expect(quickParse('#if 1', 'CBS')).toBe(`0 CBS 9`)
     expect(quickParse('#if true', 'CBS')).toBe(`0 CBS 9`)
+
+    // Edge case: {{#if 1\s+.*}} also renders
+    fc.assert(
+      fc.property(
+        fc.constantFrom('1', 'true'),
+        fc.stringMatching(/^ +[^#:{}\r\n]*$/),
+        (truthy, tail) => {
+          expect(quickParse(`#if ${truthy}${tail}`, 'CBS')).toBe(`0 CBS 9`)
+        }
+      ),
+    )
   })
 
   test('does not render when anything else', async () => {
     expect(quickParse('#if 0', 'CBS')).toBe('0  9')
     expect(quickParse('#if false', 'CBS')).toBe('0  9')
 
+    // Edge case: {{#if \s+1}} does not render
+    expect(quickParse('#if  1', 'CBS')).toBe(`0  9`)
+    expect(quickParse('#if   true', 'CBS')).toBe(`0  9`)
+
     fc.assert(
       fc.property(
-        validCBSArgProp.filter((s) => s !== '1' && s !== 'true'),
+        validCBSArgProp.filter((s) => !/^1|(?:true)\s*/.test(s)),
         (anythingElse) => {
           expect(quickParse(`#if ${anythingElse}`, 'CBS')).toBe(`0  9`)
         }
-      )
+      ),
     )
   })
 
@@ -133,19 +126,34 @@ describe('#if_pure', () => {
   test('renders when "1" or "true"', () => {
     expect(quickParse('#if_pure 1', 'CBS')).toBe(`0 CBS 9`)
     expect(quickParse('#if_pure true', 'CBS')).toBe(`0 CBS 9`)
+
+    // Edge case: {{#if_pure 1\s+.*}} also renders
+    fc.assert(
+      fc.property(
+        fc.constantFrom('1', 'true'),
+        fc.stringMatching(/^ +[^#:{}\r\n]*$/),
+        (truthy, tail) => {
+          expect(quickParse(`#if_pure ${truthy}${tail}`, 'CBS')).toBe(`0 CBS 9`)
+        }
+      ),
+    )
   })
 
   test('does not render when anything else', async () => {
     expect(quickParse('#if_pure 0', 'CBS')).toBe('0  9')
     expect(quickParse('#if_pure false', 'CBS')).toBe('0  9')
 
+    // Edge case: {{#if_pure \s+1}} does not render
+    expect(quickParse('#if_pure  1', 'CBS')).toBe(`0  9`)
+    expect(quickParse('#if_pure   true', 'CBS')).toBe(`0  9`)
+
     fc.assert(
       fc.property(
-        validCBSArgProp.filter((s) => s !== '1' && s !== 'true'),
+        validCBSArgProp.filter((s) => !/^1|(?:true)\s*/.test(s)),
         (anythingElse) => {
           expect(quickParse(`#if_pure ${anythingElse}`, 'CBS')).toBe(`0  9`)
         }
-      )
+      ),
     )
   })
 
@@ -246,6 +254,24 @@ describe('#when', () => {
       expect(quickParse('#when::0::or::0', 'CBS')).toBe(`0  9`)
       expect(quickParse('#when::0::or::not::false', 'CBS')).toBe(`0 CBS 9`)
     })
+
+    test('right-to-left evaluation', () => {
+      expect(quickParse('#when::1::or::0::and::0', 'CBS')).toBe(`0 CBS 9`)
+      expect(quickParse('#when::0::or::1::and::0', 'CBS')).toBe(`0  9`)
+      expect(quickParse('#when::0::or::0::and::1', 'CBS')).toBe(`0  9`)
+
+      expect(quickParse('#when::1::and::1::or::0', 'CBS')).toBe(`0 CBS 9`)
+      expect(quickParse('#when::1::and::0::or::1', 'CBS')).toBe(`0 CBS 9`)
+      expect(quickParse('#when::0::and::1::or::1', 'CBS')).toBe(`0  9`)
+    })
+
+    test.skip('Lower precedence than other operators', () => {
+      // FIXME: left-hand/right-hand must be evaluated first, then or
+      // Given #when::a::tis::3::or::b::tis::7
+      //   AS-IS: a::tis::3 -> 1, 1::or::7 -> 1, 1::tis::7 -> 0
+      //   TO-BE: a::tis::3 -> 1, b::tis::7 -> 1, 1::or::1 -> 1
+      expect(quickParse('#when::3::tis::3::or::7::tis::7', 'CBS')).toBe(`0 CBS 9`)
+    })
   })
 
   describe('Operators: whitespaces', () => {
@@ -274,7 +300,7 @@ describe('#when', () => {
       )
     })
 
-    test('::vis, visnot', () => {
+    test('::vis, visnot, tis, tisnot', () => {
       fc.assert(
         fc.property(validCBSArgProp, validCBSArgProp, (a, b) => {
           fc.pre(a !== b)

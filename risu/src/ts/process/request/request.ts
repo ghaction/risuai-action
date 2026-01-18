@@ -3,7 +3,7 @@ import { language } from "../../../lang";
 import { globalFetch } from "../../globalApi.svelte";
 import { getModelInfo, LLMFlags, LLMFormat, type LLMModel } from "../../model/modellist";
 import { risuChatParser, risuEscape, risuUnescape } from "../../parser.svelte";
-import { pluginProcess, pluginV2 } from "../../plugins/plugins";
+import { pluginProcess, pluginV2 } from "../../plugins/plugins.svelte";
 import { getCurrentCharacter, getCurrentChat, getDatabase, type character } from "../../storage/database.svelte";
 import { tokenizeNum } from "../../tokenizer";
 import { sleep } from "../../util";
@@ -215,7 +215,7 @@ export function applyParameters(data: { [key: string]: any }, parameters: Parame
                 }
             }
 
-            if(value === -1000 || value === undefined){
+            if(value === -1000 || value === undefined || value === null || (typeof value === 'number' && isNaN(value))){
                 continue
             }
 

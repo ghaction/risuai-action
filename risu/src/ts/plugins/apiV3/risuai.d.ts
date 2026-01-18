@@ -1076,6 +1076,49 @@ interface RisuaiPluginAPI {
      */
     setChar(character: any): Promise<void>;
 
+        /**
+     * Gets a character by index
+     * @param index - Character index
+     * @returns Character object or null if not found
+     */
+    getCharacterFromIndex(index: number): Promise<any|null>;
+
+    /**
+     * Saves a character at a specific index
+     * @param index - Character index
+     * @param character - Character object to save
+     */
+    setCharacterToIndex(index: number, character: any): Promise<void>;
+
+    /**
+     * Gets a chat by index
+     * @param characterIndex - Character index
+     * @param chatIndex - Chat index
+     * @returns Chat object or null if not found
+     */
+    getChatFromIndex(characterIndex: number, chatIndex: number): Promise<any|null>;
+    
+
+    /**
+     * Saves a chat at a specific index
+     * @param characterIndex - Character index
+     * @param chatIndex - Chat index
+     * @param chat - Chat object to save
+     */
+    setChatToIndex(characterIndex: number, chatIndex: number, chat: any): Promise<void>;
+
+    /**
+     * Gets the current character index
+     * @returns Current character index
+     */
+    getCurrentCharacterIndex(): Promise<number>;
+
+    /**
+     * Gets the current chat index
+     * @returns Current chat index
+     */
+    getCurrentChatIndex: () => Promise<number>;
+
     // ========== Storage APIs ==========
 
     /** Plugin-specific storage (syncs with save files) */
@@ -1118,6 +1161,7 @@ interface RisuaiPluginAPI {
 
     /**
      * Gets the database with limited access
+     * @param includeOnly - Array of keys to include or 'all' for all allowed keys. defaults to 'all'.
      * @returns DatabaseSubset object (limited to allowed keys) or null if consent not given
      *
      * Allowed keys: characters, modules, enabledModules, moduleIntergration,
@@ -1126,6 +1170,8 @@ interface RisuaiPluginAPI {
      * textTheme, lineHeight, seperateModelsForAxModels, seperateModels,
      * customCSS, guiHTML, colorSchemeName, characterOrder, selectedPersona
      *
+     * Use includeOnly to limit which keys to retrieve for better performance.
+     * 
      * @example
      * ```typescript
      * const db = await risuai.getDatabase();
@@ -1134,7 +1180,7 @@ interface RisuaiPluginAPI {
      * }
      * ```
      */
-    getDatabase(): Promise<DatabaseSubset|null>;
+    getDatabase(includeOnly:string[]|'all' = 'all'): Promise<DatabaseSubset|null>;
 
     /**
      * Sets the database (lightweight save)
@@ -1351,9 +1397,9 @@ interface RisuaiPluginAPI {
     /**
      * Saves an asset
      * @param data - Asset data
-     * @param path - Asset path
+     * @returns Saved asset path
      */
-    saveAsset(data: any, path?: string): Promise<void>;
+    saveAsset(data: any): Promise<string>;
 
     // ========== Plugin Management ==========
 
@@ -1384,6 +1430,23 @@ interface RisuaiPluginAPI {
      * Checks and corrects character order in the database
      */
     checkCharOrder(): Promise<void>;
+
+    /**
+     * Gets runtime information about Risuai environment
+     * @returns Object containing apiVersion, platform, and saveMethod
+     */
+    getRuntimeInfo(): Promise<{
+        apiVersion: string;
+        platform: string;
+        saveMethod: string;
+    }>
+
+    /**
+     * Requests permission for a specific action
+     * @param permission - Permission string (e.g. 'fetchLogs'|'db'|'mainDom')
+     * @returns True if permission granted, false otherwise
+     */
+    requestPluginPermission(permission: string): Promise<boolean>;
 
     /**
      * Unwraps a SafeClassArray into a standard array

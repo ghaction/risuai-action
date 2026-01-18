@@ -114,7 +114,6 @@ export const languageEnglish = {
         charjs: "A javascript code that would run with character. for example, you can check `https://github.com/kwaroran/Risuai/blob/main/src/etc/example-char.js` CURRENTLY NOT RECOMMENDED TO USE DUDE TO SECURITY REASONS. EXPORTING WOULD NOT INCLUDE THIS.",
         romanizer:
             "Romanizer is a plugin that converts non-roman characters to roman characters to reduce tokens when using non-roman characters while requesting data. this can result diffrent output from the original model. it is not recommended to use this plugin when using roman characters on chat.",
-        oaiRandomUser: "If enabled, random uuid would be put on user parameter on request, and would be changed on refresh. this can be used to prevent AI from identifying user.",
         inlayImages: "If enabled, images could be inlayed to the chat and AIs can see it if they support it.",
         metrica:
             "Metric Systemizer is a plugin that converts metrics to imperial units when request, and vice versa on output to show user metric system while using imperial for performace. it is not recommended to use this plugin when using imperial units on chat.",
@@ -176,6 +175,7 @@ export const languageEnglish = {
             "You can enable modules by putting the module namespace in the module intergartion sections. if you want to enable multiple modules, you can seperate them by comma. for example, `module1,module2,module3`. this is for advanced users, who wants to vary the use of modules by presets.",
         customCSS: "Custom CSS for styling. you can also disable/enable it by pressing (Ctrl + .) if something goes wrong.",
         betaMobileGUI: "If enabled, it will use beta mobile GUI on small (less than 800px) screens. requires refresh.",
+        enableScrollToActiveChar: "If enabled, pressing the hotkey or holding Ctrl while dragging a character will scroll to the currently active character. Folders will be opened automatically if closed.",
         unrecommended: "This is a unrecommended setting. it is not recommended to use this setting.",
         jsonSchema:
             "This is a JSON Schema that will be sent to the AI model if AI model supports JSON Schema.\n\nHowever, since JSON Schema is hard to learn, In Risuai, you can use subset of TypeScript interface instead of JSON Schema. Risuai will convert it in runtime." +
@@ -864,17 +864,11 @@ export const languageEnglish = {
     icon: "Icon",
     account: "Account",
     remove: "Remove",
-    creationSuccess: "Creation Success",
-    noweb: "This feature cannot be used on web version.",
-    createBotInternet: "Create Bot from Internet with AI",
-    createBotInternetAlert: "Please provide the character's name and the corresponding series/game.",
     able: "Able",
     assetWidth: "Asset Images Max Width",
     animationSpeed: "Animation Speed",
     screenshot: "Screenshot",
     screenshotSaved: "Screenshot Saved",
-    inputBotGenerationPrompt: "Input Bot Generation Prompt",
-    createBotAI: "Create OC Bot from AI",
     createBotwithAI: "Create Bot from AI",
     changeFolderName: "Input the new folder name (blank to cancel)",
     cancel: "Cancel",
@@ -991,7 +985,6 @@ export const languageEnglish = {
     forcePlainFetch: "Force Plain Fetch",
     autoFillRequestURL: "Autofill Request URL",
     newOAIHandle: "New OpenAI Handling",
-    oaiRandomUser: "Put OAI Random User",
     inlayImage: "Inlay Image Feature",
     nativeAutomark: "Experimental Native Automark",
     assistantPrefill: "Assistant Prefill",
@@ -1176,6 +1169,7 @@ export const languageEnglish = {
     convertionStep1: "Select all file related to the prompt (Context, Instruct and Sampler JSON is supported)",
     customCSS: "Custom CSS",
     betaMobileGUI: "Beta Mobile GUI",
+    enableScrollToActiveChar: "Enable Scroll to Active Character",
     menu: "Menu",
     connectionOpen: "Connection Open",
     connectionOpenInfo: "Multiuser room is opened. you can share the room code to other users. others can join the room by using the code inside playground > Join Multiuser Room.",
@@ -1382,6 +1376,7 @@ export const languageEnglish = {
         export: "Export",
         webcam: "Toggle Webcam",
         focusInput: "Focus Input",
+        scrollToActiveChar: "Scroll to Active Character",
     },
     screenTooSmall: "Screen is too small to show the interface.",
     advancedModelSettings: "Advanced Model Settings",
@@ -1491,4 +1486,8 @@ export const languageEnglish = {
     mainDomAccessConsent: "Plugin {} is requesting to access the main Document, which may expose sensitive information. Do you want to allow this?",
     pluginV2Warning: "Plugin V2 and V2.1 is considered unsafe and will stop working in future versions. **Please do not use these versions of plugins.**. If you are the developer of this plugin, please update to V3 as soon as possible.",
     createFolderOnBranch: "Create Folder on Branch",
+    partialBackupFirstConfirm: "⚠️ WARNING: Partial Local Backup ⚠️\n\nThis backup quickly saves only essential information.\n\nIncluded:\n- Database (chat history, characters, modules, plugins, prompts, settings, etc.)\n- Character profile icons (main images)\n- User icons and custom backgrounds\n- Persona icons\n- Folder images\n- Bot preset images\n\n⚠️ NOT Included:\n- Emotion images\n- Additional character assets\n- VITS voice files\n- All other additional media files\n\nThis backup file does NOT include all character assets!\nIf you need a complete backup, use the regular local backup.\n\nDo you want to continue?",
+    partialBackupSecondConfirm: "⚠️⚠️ FINAL WARNING ⚠️⚠️\n\nThis backup saves only character profile images and does NOT save most other assets!\n\nWhat will be saved:\n- Database (chat history, characters, modules, plugins, prompts, settings, etc.)\n- Character profile icons (main images)\n- User icons and custom backgrounds\n- Persona icons\n- Folder images\n- Bot preset images\n\nWhat will NOT be saved:\n- Emotion images\n- Additional character assets\n- VITS voice files\n- All other media files\n\n⚠️ Proceed ONLY if you don't need character assets in your backup file! ⚠️\n\nAre you really sure you want to proceed with partial backup?",
+    savePartialLocalBackup: "Save Partial Backup Locally (Excluding Character Assets)",
+    pluginProviderNotFound: "Unknown Plugin detected. please change the model or enable the corresponding plugin."
 }
