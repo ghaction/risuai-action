@@ -525,6 +525,19 @@ export const languageGerman = {
         "helpSlot": "Verwenden Sie {{slot}}, um es unverändert zu lassen",
         "expression": "Ausdruck"
     },
+    "playground": {
+        "playground": "Spielwiese",
+        "inlayDeleteConfirm": (name: string) => `Möchten Sie "${name}" wirklich löschen?`,
+        "inlayDeleteMultipleConfirm": (count: number) => `Möchten Sie die ausgewählten ${count} Ressourcen wirklich löschen?`,
+        "inlayDeleteSelected": "Ausgewählte löschen",
+        "inlayDeselectAll": "Alle abwählen",
+        "inlayEmpty": "Keine gespeicherten Inlay-Ressourcen",
+        "inlayEmptyDesc": "In Chats angehängte oder generierte Bilder, Audio und Videos werden hier angezeigt",
+        "inlayExplorer": "Inlay-Ressourcen-Explorer",
+        "inlayLoadMore": (remaining: number) => `Mehr laden (${remaining} verbleibend)`,
+        "inlaySelectAll": "Alle auswählen",
+        "inlayTotalAssets": (count: number) => `Insgesamt ${count} Ressourcen`,
+    },
     "confirm": "Bestätigen",
     "goback": "Zurück",
     "botSettings": "Bot-Einstellungen",
@@ -760,9 +773,6 @@ export const languageGerman = {
     "officialWikiDesc": "Offizielles Wiki für Risuai. Schauen Sie doch gerne bei uns vorbei",
     "officialDiscord": "Offizieller Discord",
     "officialDiscordDesc": "Offizieller Discord zum Austausch über Risuai",
-    "confirmRecommendedPreset": "Für dieses Modell gibt es empfohlene Einstellungen. Möchten Sie die Einstellungen darauf ändern? (Sie können das Fragen in den Zugangseinstellungen ausschalten)",
-    "toggleConfirmRecommendedPreset": "Bei Modelländerung nach empfohlener Einstellung fragen",
-    "recommendedPreset": "Auf empfohlene Einstellungen setzen",
     "persona": "Mein Profil",
     "icon": "Symbol",
     "account": "Konto",
@@ -969,7 +979,6 @@ export const languageGerman = {
     "chatFormating": "Chat-Formatierung",
     "useInstructPrompt": "Anweisungs-Prompt verwenden",
     "hanuraiMemory": "HanuraiMemory",
-    "playground": "Spielwiese",
     "textAreaSize": "Eingabebereichsgröße",
     "textAreaTextSize": "Eingabebereichs-Textgröße",
     "sideBarSize": "Seitenleistengröße",
@@ -1133,7 +1142,6 @@ export const languageGerman = {
     "pluginVersionWarn": "Dies ist Version {{plugin_version}} des Plugins, die nicht mit dieser Version von Risuai kompatibel ist. Bitte aktualisieren Sie das Plugin auf Version {{required_version}}.",
     "imageTranslation": "Bildübersetzung",
     "banCharacterset": "Bei Zeichensatz automatisch neu generieren",
-    "checkCorruption": "Auf Korruption prüfen",
     "realmDirectOpen": "Charakter in RisuRealm direkt öffnen",
     "showPromptComparison": "Anweisungsvergleich anzeigen",
     "inlayErrorResponse": "Fehlerantwort einfügen",
@@ -1372,5 +1380,5 @@ export const languageGerman = {
     "alwaysScrollToNewMessage": "Immer zu neuen Nachrichten scrollen (Scrollposition ignorieren)",
     "disableAbove": "Nachrichten für KI kürzen",
     "autoScrollToNewMessage": "Automatisch zu neuen Nachrichten scrollen",
-    "newMessageButtonStyle": "Stil der Schaltfläche „Neue Nachricht“"
-};
+    "newMessageButtonStyle": "Stil der Schaltfläche „Neue Nachricht“",
+} satisfies DeepPartial<typeof import('./en').languageEnglish>

@@ -526,6 +526,19 @@ export const languageKorean = {
         "helpSlot": "변경하지 않으려면 {{slot}}을 사용하세요",
         "expression": "수식"
     },
+    "playground": {
+        "playground": "플레이그라운드",
+        "inlayDeleteConfirm": (name: string) => `"${name}"을(를) 정말 삭제하시겠습니까?`,
+        "inlayDeleteMultipleConfirm": (count: number) => `선택한 ${count}개의 에셋을 정말 삭제하시겠습니까?`,
+        "inlayDeleteSelected": "선택 항목 삭제",
+        "inlayDeselectAll": "모두 선택 해제",
+        "inlayEmpty": "저장된 인레이 에셋이 없습니다",
+        "inlayEmptyDesc": "채팅에서 첨부 또는 생성된 이미지, 오디오 및 비디오가 여기에 나타납니다",
+        "inlayExplorer": "인레이 에셋 탐색기",
+        "inlayLoadMore": (remaining: number) => `더보기 (남은 항목 ${remaining}개)`,
+        "inlaySelectAll": "모두 선택",
+        "inlayTotalAssets": (count: number) => `총 ${count}개 에셋`,
+    },
     "confirm": "확인",
     "goback": "뒤로",
     "botSettings": "봇 설정",
@@ -761,9 +774,6 @@ export const languageKorean = {
     "officialWikiDesc": "리스AI의 공식 위키. 자유롭게 보세요.",
     "officialDiscord": "공식 디스코드",
     "officialDiscordDesc": "리스AI에 대해 자유롭게 대화하세요.",
-    "confirmRecommendedPreset": "이 모델에 대한 추천 설정이 있습니다. 그걸로 변경하시겠습니까? (접근성 설정에서 물어보는 것을 끌 수 있습니다.)",
-    "toggleConfirmRecommendedPreset": "추천 설정 적용 물어보기",
-    "recommendedPreset": "권장 설정으로 변경",
     "persona": "페르소나",
     "icon": "아이콘",
     "account": "계정",
@@ -970,7 +980,6 @@ export const languageKorean = {
     "chatFormating": "채팅 포맷",
     "useInstructPrompt": "인스트럭트 프롬프트 사용",
     "hanuraiMemory": "하느라이메모리",
-    "playground": "플레이그라운드",
     "textAreaSize": "텍스트 영역 크기",
     "textAreaTextSize": "텍스트 영역 텍스트 크기",
     "sideBarSize": "사이드바 크기",
@@ -1135,7 +1144,6 @@ export const languageKorean = {
     "pluginVersionWarn": "이 플러그인은 {{plugin_version}} 버전입니다. 이 버전의 Risuai와 호환되지 않습니다. 플러그인을 {{required_version}} 버전으로 업데이트하세요.",
     "imageTranslation": "이미지 번역",
     "banCharacterset": "문자 집합으로 자동 재생성",
-    "checkCorruption": "데이터 손상 확인",
     "realmDirectOpen": "RisuRealm 미리보기에서 바로 열기",
     "showPromptComparison": "프롬프트 비교 보기",
     "inlayErrorResponse": "인레이 오류 응답",
@@ -1379,5 +1387,5 @@ export const languageKorean = {
     "branch": "분기점",
     "partialBackupFirstConfirm": "⚠️ 경고: 부분 로컬 백업 ⚠️\n\n이 백업은 최소한의 필수 정보만 빠르게 저장하는 기능입니다.\n\n포함되는 것:\n- 데이터베이스 (채팅 기록, 캐릭터, 모듈, 플러그인, 프롬프트, 설정 등)\n- 캐릭터 프로필 아이콘 (메인 이미지)\n- 사용자 아이콘 및 커스텀 배경\n- 페르소나 아이콘\n- 폴더 이미지\n- 봇 프리셋 이미지\n\n⚠️ 포함되지 않는 것:\n- 감정 이미지\n- 추가 캐릭터 에셋\n- VITS 음성 파일\n- 기타 모든 추가 미디어 파일\n\n이 백업 파일에는 모든 캐릭터 에셋이 포함되지 않습니다!\n완전한 백업이 필요하다면 일반 로컬 백업을 사용하세요.\n\n그래도 계속하시겠습니까?",
     "partialBackupSecondConfirm": "⚠️⚠️ 최종 경고 ⚠️⚠️\n\n이 백업은 캐릭터의 프로필 이미지만 저장하며, 나머지 대부분의 에셋은 저장하지 않습니다!\n\n저장되는 것:\n- 데이터베이스 (채팅 기록, 캐릭터, 모듈, 플러그인, 프롬프트, 설정 등)\n- 캐릭터 프로필 아이콘 (메인 이미지)\n- 사용자 아이콘 및 커스텀 배경\n- 페르소나 아이콘\n- 폴더 이미지\n- 봇 프리셋 이미지\n\n저장되지 않는 것:\n- 감정 이미지\n- 추가 캐릭터 에셋\n- VITS 음성 파일\n- 기타 모든 미디어 파일\n\n⚠️ 백업 파일에 캐릭터 에셋이 필요하지 않은 경우에만 진행하세요! ⚠️\n\n정말로 부분 백업을 진행하시겠습니까?",
-    "savePartialLocalBackup": "부분 로컬 백업 저장 (캐릭터 에셋 제외)"
-};
+    "savePartialLocalBackup": "부분 로컬 백업 저장 (캐릭터 에셋 제외)",
+} satisfies DeepPartial<typeof import('./en').languageEnglish>

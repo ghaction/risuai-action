@@ -525,6 +525,19 @@ export const languageChinese = {
         "helpSlot": "使用 {{slot}} 保持不变",
         "expression": "表达式"
     },
+    "playground": {
+        "playground": "Playground",
+        "inlayDeleteConfirm": (name: string) => `确定要删除"${name}"吗？`,
+        "inlayDeleteMultipleConfirm": (count: number) => `确定要删除选中的${count}个资源吗？`,
+        "inlayDeleteSelected": "删除选中项",
+        "inlayDeselectAll": "取消全选",
+        "inlayEmpty": "没有保存的内联资源",
+        "inlayEmptyDesc": "在聊天中附加或生成的图像、音频和视频将显示在这里",
+        "inlayExplorer": "内联资源浏览器",
+        "inlayLoadMore": (remaining: number) => `加载更多(剩余${remaining}个)`,
+        "inlaySelectAll": "全选",
+        "inlayTotalAssets": (count: number) => `共${count}个资源`,
+    },
     "confirm": "确定",
     "goback": "返回",
     "botSettings": "机器人设置",
@@ -760,9 +773,6 @@ export const languageChinese = {
     "officialWikiDesc": "欢迎查看叡苏官方的 Wiki。",
     "officialDiscord": "官方 Discord",
     "officialDiscordDesc": "叡苏官方的 Discord 服务器",
-    "confirmRecommendedPreset": "此模型有建议设置，是否更改为建议设置？（可在辅助功能中关闭提示）",
-    "toggleConfirmRecommendedPreset": "模型变更时询问是否使用建议设置",
-    "recommendedPreset": "使用建议设置",
     "persona": "用户信息",
     "icon": "头像",
     "account": "账号",
@@ -969,7 +979,6 @@ export const languageChinese = {
     "chatFormating": "聊天格式",
     "useInstructPrompt": "激活命令提示词",
     "hanuraiMemory": "HanuraiMemory",
-    "playground": "Playground",
     "textAreaSize": "输入栏大小",
     "textAreaTextSize": "输入栏文字大小",
     "sideBarSize": "侧边栏大小",
@@ -1133,7 +1142,6 @@ export const languageChinese = {
     "pluginVersionWarn": "这是插件的 {{plugin_version}} 版本。它与此版本的 Risuai 不兼容。请将插件更新到 {{required_version}} 版本。",
     "imageTranslation": "图片翻译",
     "banCharacterset": "字符集自动重新生成",
-    "checkCorruption": "检查损坏",
     "realmDirectOpen": "在 RisuRealm 中直接打开角色",
     "showPromptComparison": "显示提示词比较",
     "inlayErrorResponse": "嵌入错误响应",
@@ -1372,5 +1380,5 @@ export const languageChinese = {
     "newMessageButtonBottomRight": "右下角",
     "alwaysScrollToNewMessage": "始终滚动到新消息（忽略滚动位置）",
     "autoScrollToNewMessage": "自动滚动至新消息",
-    "disableAbove": "为 AI 剪裁的消息"
-};
+    "disableAbove": "为 AI 剪裁的消息",
+} satisfies DeepPartial<typeof import('./en').languageEnglish>

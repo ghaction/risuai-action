@@ -525,6 +525,19 @@ export const languageChineseTraditional = {
         "helpSlot": "使用 {{slot}} 保持不變",
         "expression": "表達式"
     },
+    "playground": {
+        "playground": "Playground",
+        "inlayDeleteConfirm": (name: string) => `確定要刪除"${name}"嗎？`,
+        "inlayDeleteMultipleConfirm": (count: number) => `確定要刪除選中的${count}個資源嗎？`,
+        "inlayDeleteSelected": "刪除選中項",
+        "inlayDeselectAll": "取消全選",
+        "inlayEmpty": "沒有保存的內聯資源",
+        "inlayEmptyDesc": "在聊天中附加或生成的圖像、音頻和視頻將顯示在這裡",
+        "inlayExplorer": "內聯資源瀏覽器",
+        "inlayLoadMore": (remaining: number) => `加載更多(剩餘${remaining}個)`,
+        "inlaySelectAll": "全選",
+        "inlayTotalAssets": (count: number) => `共${count}個資源`,
+    },
     "confirm": "確定",
     "goback": "返回",
     "botSettings": "機器人設定",
@@ -760,9 +773,6 @@ export const languageChineseTraditional = {
     "officialWikiDesc": "歡迎查看叡甦官方的 Wiki。",
     "officialDiscord": "官方 Discord",
     "officialDiscordDesc": "叡甦官方的 Discord 伺服器",
-    "confirmRecommendedPreset": "此模型有建議設定，是否更改為建議設定？（可在輔助功能中關閉提示）",
-    "toggleConfirmRecommendedPreset": "模型變更時詢問是否使用建議設定",
-    "recommendedPreset": "使用建議設定",
     "persona": "使用者資訊",
     "icon": "圖示",
     "account": "帳號",
@@ -969,7 +979,6 @@ export const languageChineseTraditional = {
     "chatFormating": "聊天格式",
     "useInstructPrompt": "啟用指令提示詞",
     "hanuraiMemory": "HanuraiMemory",
-    "playground": "Playground",
     "textAreaSize": "輸入欄大小",
     "textAreaTextSize": "輸入欄文字大小",
     "sideBarSize": "側邊欄大小",
@@ -1133,7 +1142,6 @@ export const languageChineseTraditional = {
     "pluginVersionWarn": "這是 {{plugin_version}} 版本的外掛程式，與當前 Risuai 版本不相容。請更新外掛至 {{required_version}} 版本。",
     "imageTranslation": "圖像翻譯",
     "banCharacterset": "自動重新生成字符集",
-    "checkCorruption": "檢查損壞",
     "realmDirectOpen": "在 RisuRealm 中直接開啟角色",
     "showPromptComparison": "顯示提示比較",
     "inlayErrorResponse": "嵌入錯誤回應",
@@ -1372,5 +1380,5 @@ export const languageChineseTraditional = {
     "alwaysScrollToNewMessage": "始終捲動至新訊息（忽略捲動位置）",
     "disableMessage": "停用訊息",
     "newMessageButtonBottomCenter": "底部置中 (預設)",
-    "disableAbove": "為 AI 剪裁訊息"
-};
+    "disableAbove": "為 AI 剪裁訊息",
+} satisfies DeepPartial<typeof import('./en').languageEnglish>

@@ -13,7 +13,7 @@ vi.mock(
       appVer: '1234.5.67',
       getCurrentCharacter: () => ({}),
       getDatabase: () => ({}),
-    } as typeof import('../../../storage/database.svelte'))
+    }) as typeof import('../../../storage/database.svelte'),
 )
 
 vi.mock(import('../../../globalApi.svelte'), () => ({
@@ -30,17 +30,16 @@ const varStorage = vi.hoisted(
         get(_, prop) {
           return trimVarPrefix(prop)
         },
-      }
-    )
+      },
+    ),
 )
 
 vi.mock(import('../../../stores.svelte'), () => {
-  // @ts-expect-error Minimal mock
   return {
     DBState: {
       db: {
-        characters: {
-          char: {
+        characters: [
+          {
             chatPage: 0,
             chats: [
               {
@@ -49,12 +48,15 @@ vi.mock(import('../../../stores.svelte'), () => {
             ],
             defaultVariables: '',
           },
-        },
+        ],
         globalChatVariables: varStorage,
         templateDefaultVariables: '',
       },
     },
-    selectedCharID: writable('char'),
+    selIdState: {
+      selId: 0,
+    },
+    selectedCharID: writable(0),
   } as typeof import('../../../stores.svelte')
 })
 
@@ -82,13 +84,9 @@ describe('#if', () => {
 
     // Edge case: {{#if 1\s+.*}} also renders
     fc.assert(
-      fc.property(
-        fc.constantFrom('1', 'true'),
-        fc.stringMatching(/^ +[^#:{}\r\n]*$/),
-        (truthy, tail) => {
-          expect(quickParse(`#if ${truthy}${tail}`, 'CBS')).toBe(`0 CBS 9`)
-        }
-      ),
+      fc.property(fc.constantFrom('1', 'true'), fc.stringMatching(/^ +[^#:{}\r\n]*$/), (truthy, tail) => {
+        expect(quickParse(`#if ${truthy}${tail}`, 'CBS')).toBe(`0 CBS 9`)
+      }),
     )
   })
 
@@ -105,7 +103,7 @@ describe('#if', () => {
         validCBSArgProp.filter((s) => !/^1|(?:true)\s*/.test(s)),
         (anythingElse) => {
           expect(quickParse(`#if ${anythingElse}`, 'CBS')).toBe(`0  9`)
-        }
+        },
       ),
     )
   })
@@ -129,13 +127,9 @@ describe('#if_pure', () => {
 
     // Edge case: {{#if_pure 1\s+.*}} also renders
     fc.assert(
-      fc.property(
-        fc.constantFrom('1', 'true'),
-        fc.stringMatching(/^ +[^#:{}\r\n]*$/),
-        (truthy, tail) => {
-          expect(quickParse(`#if_pure ${truthy}${tail}`, 'CBS')).toBe(`0 CBS 9`)
-        }
-      ),
+      fc.property(fc.constantFrom('1', 'true'), fc.stringMatching(/^ +[^#:{}\r\n]*$/), (truthy, tail) => {
+        expect(quickParse(`#if_pure ${truthy}${tail}`, 'CBS')).toBe(`0 CBS 9`)
+      }),
     )
   })
 
@@ -152,7 +146,7 @@ describe('#if_pure', () => {
         validCBSArgProp.filter((s) => !/^1|(?:true)\s*/.test(s)),
         (anythingElse) => {
           expect(quickParse(`#if_pure ${anythingElse}`, 'CBS')).toBe(`0  9`)
-        }
+        },
       ),
     )
   })
@@ -184,13 +178,20 @@ describe('#when', () => {
         validCBSArgProp.filter((s) => s !== '1' && s !== 'true'),
         (anythingElse) => {
           expect(quickParse(`#when::${anythingElse}`, 'CBS')).toBe(`0  9`)
-        }
-      )
+        },
+      ),
     )
   })
 
   test('removes line breaks at block start/end, preserves all other whitespaces', () => {
     expect(quickParse('#when::1', indentedBody)).toBe(`0 ${indentedBody.replaceAll(/(^\n+|\n+$)/g, '')} 9`)
+  })
+
+  test('can be nested', () => {
+    expect(quickParse('#when 1', template('#when 1', 'CBS'))).toBe(`0 0 CBS 9 9`)
+    expect(quickParse('#when 1', template('#when 0', 'CBS'))).toBe(`0 0  9 9`)
+    expect(quickParse('#when 0', template('#when 1', 'CBS'))).toBe(`0  9`)
+    expect(quickParse('#when 0', template('#when 0', 'CBS'))).toBe(`0  9`)
   })
 
   test('can omit :: without operators', () => {
@@ -209,7 +210,7 @@ describe('#when', () => {
 
           expect(quickParse(`#when::${a}::isnot::${a}`, 'CBS')).toBe('0  9')
           expect(quickParse(`#when::${a}::isnot::${b}`, 'CBS')).toBe('0 CBS 9')
-        })
+        }),
       )
     })
 
@@ -233,7 +234,7 @@ describe('#when', () => {
           expect(quickParse(`#when::${a}::<::${a}`, 'CBS')).toBe('0  9')
           expect(quickParse(`#when::${a}::<::${b}`, 'CBS')).toBe('0  9')
           expect(quickParse(`#when::${b}::<::${a}`, 'CBS')).toBe('0 CBS 9')
-        })
+        }),
       )
     })
   })
@@ -295,8 +296,8 @@ describe('#when', () => {
           (anythingElse) => {
             expect(quickParse(`#when::var::${anythingElse}`, 'CBS')).toBe(`0  9`)
             expect(quickParse(`#when::toggle::${anythingElse}`, 'CBS')).toBe(`0  9`)
-          }
-        )
+          },
+        ),
       )
     })
 
@@ -314,7 +315,7 @@ describe('#when', () => {
           expect(quickParse(`#when::${a}::visnot::${b}`, 'CBS')).toBe(`0 CBS 9`)
           expect(quickParse(`#when::${a}::tisnot::${a}`, 'CBS')).toBe(`0  9`)
           expect(quickParse(`#when::${a}::tisnot::${b}`, 'CBS')).toBe(`0 CBS 9`)
-        })
+        }),
       )
     })
   })
@@ -335,12 +336,36 @@ describe('#when', () => {
 
       // FIXME: Unexpected line break removal before the {{:else}}
       expect(quickParse('#when::keep::1', `${indentedBody}{{:else}}${revBody}`)).toBe(
-        `0 ${indentedBody.replace(/\n$/, '')} 9`
+        `0 ${indentedBody.replace(/\n$/, '')} 9`,
       )
       // FIXME: Unexpected line break removal after the {{:else}}
       expect(quickParse('#when::keep::0', `${indentedBody}{{:else}}${revBody}`)).toBe(
-        `0 ${revBody.replace(/^\n/, '')} 9`
+        `0 ${revBody.replace(/^\n/, '')} 9`,
       )
+    })
+
+    test('works in and out of a nested #when', () => {
+      const nestedTemplate = (a: string, b: string) => `{{#when ${a}}}
+{{#when ${b}}}CBS{{:else}}SBC{{/}}
+{{:else}}
+ABC
+{{/}}`
+
+      expect(risuChatParser(nestedTemplate('1', '1'))).toBe(`CBS`)
+      expect(risuChatParser(nestedTemplate('1', '0'))).toBe(`SBC`)
+      expect(risuChatParser(nestedTemplate('0', '1'))).toBe(`ABC`)
+      expect(risuChatParser(nestedTemplate('0', '0'))).toBe(`ABC`)
+    })
+
+    test('works in an #each', () => {
+      const template = `{{#each [1, 2, 3] as n}}
+{{#when::n::is::2}}
+CBS{{slot::n}}
+{{:else}}
+SBC{{slot::n}}
+{{/}}
+{{/}}`
+      expect(risuChatParser(template)).toBe(`SBC1SBC2SBC3`)
     })
   })
 })

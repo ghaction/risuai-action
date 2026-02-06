@@ -20,9 +20,13 @@ vi.mock(import('src/ts/stores.svelte'), () => {
   return {
     DBState: {
       db: {
+        characters: [],
         enabledModules: [],
         modules: [],
       },
+    },
+    selIdState: {
+      selId: 0,
     },
   } as typeof import('src/ts/stores.svelte')
 })

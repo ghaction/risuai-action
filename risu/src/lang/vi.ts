@@ -525,6 +525,19 @@ export const languageVietnamese = {
         "helpSlot": "Sử dụng {{slot}} để giữ nguyên",
         "expression": "Biểu thức"
     },
+    "playground": {
+        "playground": "Playground",
+        "inlayDeleteConfirm": (name: string) => `Bạn có chắc muốn xóa "${name}" không?`,
+        "inlayDeleteMultipleConfirm": (count: number) => `Bạn có chắc muốn xóa ${count} tài sản được chọn không?`,
+        "inlayDeleteSelected": "Xóa mục đã chọn",
+        "inlayDeselectAll": "Bỏ chọn tất cả",
+        "inlayEmpty": "Không có tài sản nội tuyến đã lưu",
+        "inlayEmptyDesc": "Hình ảnh, âm thanh và video được đính kèm hoặc tạo trong trò chuyện sẽ xuất hiện ở đây",
+        "inlayExplorer": "Trình khám phá Tài sản Inlay",
+        "inlayLoadMore": (remaining: number) => `Tải thêm (${remaining} còn lại)`,
+        "inlaySelectAll": "Chọn tất cả",
+        "inlayTotalAssets": (count: number) => `Tổng cộng ${count} tài sản`,
+    },
     "confirm": "Xác nhận",
     "goback": "Quay lại",
     "botSettings": "Cài đặt bot",
@@ -760,9 +773,6 @@ export const languageVietnamese = {
     "officialWikiDesc": "Wiki chính thức của Risuai. cứ thoải mái xem nhé.",
     "officialDiscord": "Bất hòa chính thức",
     "officialDiscordDesc": "Discord chính thức nói về Risuai",
-    "confirmRecommendedPreset": "Có một cài đặt được đề xuất cho mô hình này. bạn có muốn thay đổi cài đặt đó không? (bạn có thể tắt tính năng hỏi trong phần cài đặt khả năng truy cập)",
-    "toggleConfirmRecommendedPreset": "Yêu cầu cài đặt được đề xuất khi thay đổi kiểu máy",
-    "recommendedPreset": "Đặt thành Cài đặt được đề xuất",
     "persona": "nhân cách",
     "icon": "Biểu tượng",
     "account": "Tài khoản",
@@ -969,7 +979,6 @@ export const languageVietnamese = {
     "chatFormating": "Định dạng trò chuyện",
     "useInstructPrompt": "Sử dụng lời nhắc hướng dẫn",
     "hanuraiMemory": "HanuraiMemory",
-    "playground": "Playground",
     "textAreaSize": "Kích thước vùng nhập",
     "textAreaTextSize": "Kích thước văn bản vùng nhập",
     "sideBarSize": "Kích thước thanh bên",
@@ -1133,7 +1142,6 @@ export const languageVietnamese = {
     "pluginVersionWarn": "Đây là phiên bản {{plugin_version}} của plugin, không tương thích với phiên bản Risuai này. Vui lòng cập nhật plugin lên phiên bản {{required_version}}.",
     "imageTranslation": "Dịch hình ảnh",
     "banCharacterset": "Tự động tạo lại khi gặp bộ ký tự",
-    "checkCorruption": "Kiểm tra hỏng hóc",
     "realmDirectOpen": "Mở trực tiếp nhân vật trong RisuRealm",
     "showPromptComparison": "Hiển thị so sánh lời nhắc",
     "inlayErrorResponse": "Phản hồi lỗi Inlay",
@@ -1372,5 +1380,5 @@ export const languageVietnamese = {
     "disableMessage": "Vô hiệu hóa tin nhắn",
     "newMessageButtonFloatingCircle": "Vòng tròn nổi (Góc dưới bên phải)",
     "newMessageButtonBottomLeft": "Phía dưới bên trái",
-    "newMessageButtonBottomCenter": "Dưới cùng ở giữa (Mặc định)"
-};
+    "newMessageButtonBottomCenter": "Dưới cùng ở giữa (Mặc định)",
+} satisfies DeepPartial<typeof import('./en').languageEnglish>
