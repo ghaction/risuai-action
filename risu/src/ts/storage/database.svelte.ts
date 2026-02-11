@@ -15,7 +15,7 @@ import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../p
 import { isTauri, isNodeServer } from "src/ts/platform"
 
 //APP_VERSION_POINT is to locate the app version in the database file for version bumping
-export let appVer = "2026.2.63" //<APP_VERSION_POINT>
+export let appVer = "2026.2.110" //<APP_VERSION_POINT>
 export let webAppSubVer = ''
 
 
@@ -342,6 +342,8 @@ export function setDatabase(data:Database){
     data.OAIPrediction ??= ''
     data.autoSuggestClean ??= true
     data.imageCompression ??= true
+    data.enableBlockPartialEdit ??= false
+    data.enableDragPartialEdit ??= false
     if(!data.formatingOrder.includes('personaPrompt')){
         data.formatingOrder.splice(data.formatingOrder.indexOf('main'),0,'personaPrompt')
     }
@@ -549,6 +551,8 @@ export function setDatabase(data:Database){
     data.showDeprecatedTriggerV2 ??= false
     data.returnCSSError ??= true
     data.realmDirectOpen ??= false
+    data.checkCorruption ??= false
+    data.toggleConfirmRecommendedPreset ??= false
     data.useExperimentalGoogleTranslator ??= false
     if(data.antiClaudeOverload){ //migration
         data.antiClaudeOverload = false
@@ -611,6 +615,14 @@ export function setDatabase(data:Database){
         model: '',
         size: '1024x1024',
         quality: 'auto'
+    }
+    data.wavespeedImage ??= {
+        key: '',
+        model: '',
+        loras: [],
+        reference_mode: '',
+        reference_image: '',
+        reference_base64image: ''
     }
     data.autoScrollToNewMessage ??= true
     data.alwaysScrollToNewMessage ??= false
@@ -799,6 +811,8 @@ export interface Database{
     sendWithEnter:boolean
     fixedChatTextarea:boolean
     clickToEdit: boolean
+    enableBlockPartialEdit: boolean
+    enableDragPartialEdit: boolean
     koboldURL:string
     useAutoSuggestions:boolean
     autoSuggestPrompt:string
@@ -1006,6 +1020,7 @@ export interface Database{
     legacyMediaFindings?:boolean
     geminiStream?:boolean
     assetMaxDifference:number
+    auxModelUnderModelSettings:boolean
     menuSideBar:boolean
     pluginV2: RisuPlugin[]
     showSavingIcon:boolean
@@ -1025,6 +1040,8 @@ export interface Database{
     showDeprecatedTriggerV1:boolean
     showDeprecatedTriggerV2:boolean
     returnCSSError:boolean
+    checkCorruption?: boolean
+    toggleConfirmRecommendedPreset?: boolean
     useExperimentalGoogleTranslator:boolean
     thinkingTokens: number
     antiServerOverloads: boolean
@@ -1105,6 +1122,14 @@ export interface Database{
         model: string
         size: string
         quality: string
+    }
+    wavespeedImage: {
+        key: string
+        model: string
+        loras: Array<{path: string, scale: number}>,
+        reference_mode: string
+        reference_image: string
+        reference_base64image: string
     }
     sourcemapTranslate:boolean
     settingsCloseButtonSize:number
