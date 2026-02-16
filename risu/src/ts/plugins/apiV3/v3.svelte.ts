@@ -1,7 +1,7 @@
 import { allowedDbKeys, getV2PluginAPIs, type RisuPlugin } from "../plugins.svelte";
 import { SandboxHost } from "./factory";
 import { getDatabase } from "src/ts/storage/database.svelte";
-import { tagWhitelist } from "../pluginSafeClass";
+import { SafeLocalPluginStorage, tagWhitelist } from "../pluginSafeClass";
 import DOMPurify from 'dompurify';
 import { additionalChatMenu, additionalFloatingActionButtons, additionalHamburgerMenu, additionalSettingsMenu, DBState, selectedCharID, type MenuDef } from "src/ts/stores.svelte";
 import { v4 } from "uuid";
@@ -11,6 +11,7 @@ import { language } from "src/lang";
 import { checkCharOrder, forageStorage, getFetchLogs } from "src/ts/globalApi.svelte";
 import { isNodeServer, isTauri } from "src/ts/platform";
 import { get } from "svelte/store";
+import { registerMCPModule, unregisterMCPModule } from "src/ts/process/mcp/pluginmcp";
 
 /*
     V3 API for RisuAI Plugins
@@ -505,7 +506,7 @@ const unloadV3Plugin = async (pluginName: string) => {
 
 const permissionGivenPlugins: Set<string> = new Set();
 
-const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLogs'|'db'|'mainDom') => {
+const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLogs'|'db'|'mainDom'|'replacer') => {
     if(permissionGivenPlugins.has(pluginName)){
         return true;
     }
@@ -538,7 +539,14 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
         addProvider: oldApis.addProvider,
         addRisuScriptHandler: oldApis.addRisuScriptHandler,
         removeRisuScriptHandler: oldApis.removeRisuScriptHandler,
-        addRisuReplacer: oldApis.addRisuReplacer,
+        addRisuReplacer: async (name:string,func:Function) => {
+            //permission check for replacer
+            const conf = await getPluginPermission(plugin.name, 'replacer');
+            if(!conf){
+                return;
+            }
+            oldApis.addRisuReplacer(name, func as any);
+        },
         removeRisuReplacer: oldApis.removeRisuReplacer,
         setDatabaseLite: oldApis.setDatabaseLite,
         setDatabase: oldApis.setDatabase,
@@ -762,6 +770,8 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             }
             return {id:id};
         },
+        registerMCP: registerMCPModule,
+        unregisterMCP: unregisterMCPModule,
         unregisterUIPart: (id: string) => {
             const removeFromMenuStore = (menuStore: MenuDef[]) => {
                 const index = menuStore.findIndex(item => item.id === id);
@@ -823,6 +833,9 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
                     forageStorage.isAccount ? 'account' :
                     'local',
             }
+        },
+        getLocalPluginStorage: () => {
+            return new SafeLocalPluginStorage()
         },
         checkCharOrder: checkCharOrder,
         requestPluginPermission: (permission:string) => {

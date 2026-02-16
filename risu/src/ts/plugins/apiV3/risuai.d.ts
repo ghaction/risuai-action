@@ -95,6 +95,60 @@
  */
 
 // ============================================================================
+// MCP Types
+// ============================================================================
+
+/**
+ * MCP tool definition
+ */
+interface MCPToolDef {
+    /** Tool name */
+    name: string;
+    /** Tool description */
+    description: string;
+    /** JSON schema for input validation */
+    inputSchema: any;
+    /** Annotations for the tool, can be used for documentation or metadata */
+    annotations?: any;
+}
+
+/**
+ * Text content returned from an MCP tool call
+ */
+interface MCPToolCallTextContent {
+    type: 'text';
+    text: string;
+}
+
+/**
+ * Image or audio content returned from an MCP tool call
+ */
+interface MCPToolCallImageAudioContent {
+    type: 'image' | 'audio';
+    /** Base64 encoded data */
+    data: string;
+    /** e.g. 'image/png', 'image/jpeg' */
+    mimeType: string;
+}
+
+/**
+ * Resource content returned from an MCP tool call
+ */
+interface MCPToolCallResourceContent {
+    type: 'resource';
+    resource: {
+        uri: string;
+        mimeType: string;
+        text: string;
+    };
+}
+
+/**
+ * Content types that can be returned from an MCP tool call
+ */
+type MCPToolCallContent = MCPToolCallTextContent | MCPToolCallImageAudioContent | MCPToolCallResourceContent;
+
+// ============================================================================
 // Core Types
 // ============================================================================
 
@@ -880,6 +934,66 @@ interface PluginStorage {
 }
 
 /**
+ * Device-local storage that persists outside of save files.
+ * Uses generic types for flexible value storage.
+ * Storage is shared between all plugins under a common prefix.
+ *
+ * **All methods return Promises** due to iframe message passing.
+ *
+ * @example
+ * ```typescript
+ * const storage = await risuai.getLocalPluginStorage();
+ *
+ * // Store any JSON-serializable data
+ * await storage.setItem('config', { theme: 'dark', fontSize: 14 });
+ *
+ * // Retrieve data with type safety
+ * const config = await storage.getItem<{ theme: string; fontSize: number }>('config');
+ *
+ * // List all keys
+ * const keys = await storage.keys();
+ *
+ * // Clear all plugin data
+ * await storage.clear();
+ * ```
+ */
+interface SafeLocalPluginStorage {
+    /**
+     * Gets an item from storage
+     * @param key - Storage key
+     * @returns Promise resolving to stored value or null
+     */
+    getItem<T>(key: string): Promise<T | null>;
+
+    /**
+     * Sets an item in storage
+     * @param key - Storage key
+     * @param value - Value to store (any JSON-serializable value)
+     * @returns Promise that resolves when item is stored
+     */
+    setItem<T>(key: string, value: T): Promise<void>;
+
+    /**
+     * Removes an item from storage
+     * @param key - Storage key
+     * @returns Promise that resolves when item is removed
+     */
+    removeItem(key: string): Promise<void>;
+
+    /**
+     * Gets all storage keys
+     * @returns Promise resolving to array of key names
+     */
+    keys(): Promise<string[]>;
+
+    /**
+     * Clears all items from storage
+     * @returns Promise that resolves when storage is cleared
+     */
+    clear(): Promise<void>;
+}
+
+/**
  * Device-specific storage shared between plugins
  * Same API as PluginStorage but only supports string values
  *
@@ -1128,6 +1242,19 @@ interface RisuaiPluginAPI {
     safeLocalStorage: SafeLocalStorage;
 
     /**
+     * Gets a device-local storage instance shared between plugins
+     * @returns SafeLocalPluginStorage instance for device-local storage
+     *
+     * @example
+     * ```typescript
+     * const storage = await risuai.getLocalPluginStorage();
+     * await storage.setItem('myKey', { data: 'value' });
+     * const value = await storage.getItem('myKey');
+     * ```
+     */
+    getLocalPluginStorage(): Promise<SafeLocalPluginStorage>;
+
+    /**
      * Gets a plugin argument value
      * @param key - Argument key (defined in plugin metadata)
      * @returns Argument value
@@ -1267,6 +1394,61 @@ interface RisuaiPluginAPI {
      * @param id - UI part ID returned during registration
      */
     unregisterUIPart(id: string): Promise<void>;
+
+    // ========== MCP APIs ==========
+
+    /**
+     * Registers a custom MCP (Model Context Protocol) module
+     * @param arg - MCP module configuration
+     * @param arg.identifier - Unique identifier (must start with 'plugin:')
+     * @param arg.name - Display name of the MCP module
+     * @param arg.version - Version string
+     * @param arg.description - Description of the MCP module
+     * @param getToolList - Function that returns the list of available tools
+     * @param callTool - Function that handles tool invocations
+     *
+     * @example
+     * ```typescript
+     * await risuai.registerMCP(
+     *   {
+     *     identifier: 'plugin:my-tools',
+     *     name: 'My Tools',
+     *     version: '1.0.0',
+     *     description: 'Custom tools for my plugin'
+     *   },
+     *   async () => [{
+     *     name: 'hello',
+     *     description: 'Says hello',
+     *     inputSchema: { type: 'object', properties: { name: { type: 'string' } } }
+     *   }],
+     *   async (toolName, content) => [{
+     *     type: 'text',
+     *     text: `Hello, ${content.name}!`
+     *   }]
+     * );
+     * ```
+     */
+    registerMCP(
+        arg: {
+            identifier: string;
+            name: string;
+            version: string;
+            description: string;
+        },
+        getToolList: () => Promise<MCPToolDef[]>,
+        callTool: (toolName: string, content: any) => Promise<MCPToolCallContent[]>
+    ): Promise<void>;
+
+    /**
+     * Unregisters a previously registered MCP module
+     * @param identifier - The identifier used when registering the MCP module
+     *
+     * @example
+     * ```typescript
+     * await risuai.unregisterMCP('plugin:my-tools');
+     * ```
+     */
+    unregisterMCP(identifier: string): Promise<void>;
 
     // ========== Provider APIs ==========
 
