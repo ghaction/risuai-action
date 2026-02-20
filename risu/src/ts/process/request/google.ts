@@ -1,15 +1,15 @@
-import { fetchNative, globalFetch, textifyReadableStream } from "src/ts/globalApi.svelte"
-import { language } from "src/lang"
+import { fetchNative, textifyReadableStream } from "src/ts/globalApi.svelte"
 import { LLMFlags, LLMFormat } from "src/ts/model/modellist"
 import { getDatabase, setDatabase } from "src/ts/storage/database.svelte"
 import { simplifySchema } from "src/ts/util"
 import { v4 } from "uuid"
 import { setInlayAsset, writeInlayImage } from "../files/inlays"
 import { extractJSON, getGeneralJSONSchema } from "../templates/jsonSchema"
-import { applyParameters, type Parameter, type RequestDataArgumentExtended, type requestDataResponse, type StreamResponseChunk } from "./request"
 import { callTool, decodeToolCall, encodeToolCall } from "../mcp/mcp"
-import { alertError, alertNormal, alertWait, showHypaV2Alert } from "src/ts/alert";
+import { alertError } from "src/ts/alert";
 import { addFetchLog } from "src/ts/globalApi.svelte"
+import type { RequestDataArgumentExtended, requestDataResponse, StreamResponseChunk } from './request'
+import { applyParameters, type LLMParameter } from './shared'
 
 type GeminiFunctionCall = {
     id?: string;
@@ -300,7 +300,7 @@ export async function requestGoogleCloudVertex(arg:RequestDataArgumentExtended):
         }
     }
 
-    let para:Parameter[] = ['temperature', 'top_p', 'top_k', 'presence_penalty', 'frequency_penalty']
+    let para:LLMParameter[] = ['temperature', 'top_p', 'top_k', 'presence_penalty', 'frequency_penalty']
 
     if(arg.modelInfo.flags.includes(LLMFlags.geminiThinking)){
         para.push('thinking_tokens')
@@ -638,12 +638,14 @@ async function requestGoogle(url:string, body:any, headers:{[key:string]:string}
                 })      
             }
         }
+        
         const f = await fetchNative(url, {
             headers: headers,
             body: JSON.stringify(body),
             method: 'POST',
             chatId: arg.chatId,
             signal: arg.abortSignal,
+            interceptor: 'gemini_base_stream'
         })
 
         if(f.status !== 200){
@@ -667,22 +669,25 @@ async function requestGoogle(url:string, body:any, headers:{[key:string]:string}
         }
     }
 
-    const res = await globalFetch(url, {
+    const res = await fetchNative(url, {
         headers: headers,
-        body: body,
+        body: JSON.stringify(body),
+        method: 'POST',
         chatId: arg.chatId,
-        abortSignal: arg.abortSignal,
+        signal: arg.abortSignal,
+        interceptor: 'gemini_base'
     })
     
 
     if(!res.ok){
-        const text = JSON.stringify(res.data)
+        const data = await res.text()
+        const text = JSON.stringify(data)
         if(text.includes('RESOURCE_EXHAUSTED')){
             return fallBackGemini(text)
         }
         return {
             type: 'fail',
-            result: `${JSON.stringify(res.data)}`
+            result: `${text} (status: ${res.status})`
         }
     }
 
@@ -735,14 +740,15 @@ async function requestGoogle(url:string, body:any, headers:{[key:string]:string}
 
     // traverse responded data if it contains multipart contents
     let parts:GeminiPart[] = []
-    if(Array.isArray(res.data)){
-        for(const data of res.data){
+    const resData = await res.json()
+    if(Array.isArray(resData)){
+        for(const data of resData){
             const p = await processDataItem(data)
             parts = parts.concat(p)
         }
     }
     else{
-        const p = await processDataItem(res.data)
+        const p = await processDataItem(resData)
         parts = parts.concat(p)
     }
     parts = parts.filter((p) => p)
@@ -891,7 +897,7 @@ async function requestGoogle(url:string, body:any, headers:{[key:string]:string}
     if(!result) {
         return {
             type: 'fail',
-            result: `Got empty response: ${JSON.stringify(res.data)}`
+            result: `Got empty response: ${JSON.stringify(resData)}`
         }
     }
 
@@ -1139,6 +1145,7 @@ function wrapToolStream(
                                 method: 'POST',
                                 chatId: arg.chatId,
                                 signal: arg.abortSignal,
+                                interceptor: 'gemini_tool'
                             })
                         
                             if(resRec.status == 200){

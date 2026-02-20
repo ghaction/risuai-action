@@ -16,11 +16,11 @@ import { open } from '@tauri-apps/plugin-shell'
 import { setDatabase, type Database, defaultSdDataFunc, getDatabase, appVer, getCurrentCharacter } from "./storage/database.svelte";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { checkRisuUpdate } from "./update";
-import { MobileGUI, botMakerMode, selectedCharID, loadedStore, DBState, LoadingStatusState, selIdState, ReloadGUIPointer } from "./stores.svelte";
+import { MobileGUI, botMakerMode, selectedCharID, loadedStore, DBState, LoadingStatusState, selIdState, ReloadGUIPointer, bodyIntercepterStore } from "./stores.svelte";
 import { loadPlugins } from "./plugins/plugins.svelte";
 import { alertConfirm, alertError, alertMd, alertNormal, alertNormalWait, alertSelect, alertTOS, waitAlert } from "./alert";
 import { checkDriverInit, syncDrive } from "./drive/drive";
-import { hasher } from "./parser.svelte";
+import { hasher } from "./parser/parser.svelte";
 import { characterURLImport, hubURL } from "./characterCards";
 import { defaultJailbreak, defaultMainPrompt, oldJailbreak, oldMainPrompt } from "./storage/defaultPrompts";
 import { loadRisuAccountData } from "./drive/accounter";
@@ -549,6 +549,7 @@ interface GlobalFetchArgs {
     abortSignal?: AbortSignal;
     useRisuToken?: boolean;
     chatId?: string;
+    interceptor?: string;
 }
 
 /**
@@ -622,6 +623,17 @@ export async function globalFetch(url: string, arg: GlobalFetchArgs = {}): Promi
 
         if (knownHostes.includes(urlHost) && !isTauri && !isNodeServer) {
             return { ok: false, headers: {}, status: 400, data: 'You are trying local request on web version. This is not allowed due to browser security policy. Use the desktop version instead, or use a tunneling service like ngrok and set the CORS to allow all.' };
+        }
+
+        if(arg.interceptor){
+            for (const interceptor of bodyIntercepterStore) {
+                try {
+                    arg.body = await interceptor.callback(arg.body, arg.interceptor) || arg.body
+                }
+                catch (e) {
+                    console.error(e)
+                }
+            }
         }
 
         if (forcePlainFetch) {
@@ -1412,8 +1424,10 @@ export async function fetchNative(url: string, arg: {
     signal?: AbortSignal,
     useRisuTk?: boolean,
     chatId?: string
+    interceptor?: string
 }): Promise<Response> {
 
+    const useInterceptor = !!arg.interceptor
     console.log(arg.body, 'body')
     if (arg.body === undefined && (arg.method === 'POST' || arg.method === 'PUT')) {
         throw new Error('Body is required for POST and PUT requests')
@@ -1428,7 +1442,18 @@ export async function fetchNative(url: string, arg: {
         realBody = undefined
     }
     else if (typeof arg.body === 'string') {
-        realBody = new TextEncoder().encode(arg.body)
+        let body: string = arg.body
+        if(useInterceptor) {
+            for (const interceptor of bodyIntercepterStore) {
+                try {
+                    body = await interceptor.callback(body, arg.interceptor) || body
+                }
+                catch (e) {
+                    console.error(e)
+                }
+            }
+        }
+        realBody = new TextEncoder().encode(body)
     }
     else if (arg.body instanceof Uint8Array) {
         realBody = arg.body

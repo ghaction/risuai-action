@@ -84,10 +84,10 @@ export const advancedSettingsItems: SettingItem[] = [
 
     // Request Location (Non-Node/Tauri)
     {
-        id: 'adv.reqLoc', type: 'select', labelKey: 'requestLocation', bindKey: 'requestLocation',
+        id: 'adv.reqLoc', type: 'segmented', labelKey: 'requestLocation', bindKey: 'requestLocation',
         condition: () => !isNodeServer && !isTauri,
         options: {
-            selectOptions: [
+            segmentOptions: [
                 { value: '', label: 'Default' },
                 { value: 'eu', label: 'EU (GDPR)' },
                 { value: 'fedramp', label: 'US (FedRAMP)' }
@@ -110,6 +110,7 @@ export const advancedSettingsItems: SettingItem[] = [
     { id: 'adv.noWaitTrans', type: 'check', labelKey: 'noWaitForTranslate', bindKey: 'noWaitForTranslate', classes: 'mt-4' },
     { id: 'adv.newImgBeta', type: 'check', labelKey: 'newImageHandlingBeta', bindKey: 'newImageHandlingBeta', classes: 'mt-4' },
     { id: 'adv.allowExt', type: 'check', fallbackLabel: 'Allow all in file select', bindKey: 'allowAllExtentionFiles', classes: 'mt-4' },
+    { id: 'adv.dynamicModelRegistry', type: 'check', labelKey: 'dynamicModelRegistry', bindKey: 'dynamicModelRegistry', classes: 'mt-4' },
 
     // Experimental Section (visible when useExperimental is true)
     {

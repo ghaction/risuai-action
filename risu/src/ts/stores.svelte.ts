@@ -1,6 +1,6 @@
 import { writable } from "svelte/store";
 import type { character, Database, groupChat } from "./storage/database.svelte";
-import { type simpleCharacterArgument } from "./parser.svelte";
+import { type simpleCharacterArgument } from "./parser/parser.svelte";
 import type { alertData } from "./alert";
 import { moduleUpdate } from "./process/modules";
 import { resetScriptCache } from "./process/scripts";
@@ -134,6 +134,10 @@ export const additionalSettingsMenu = $state([] as MenuDef[])
 export const additionalFloatingActionButtons = $state([] as MenuDef[])
 export const additionalHamburgerMenu = $state([] as MenuDef[])
 export const additionalChatMenu = $state([] as MenuDef[])
+export const bodyIntercepterStore = $state([] as {
+    id: string,
+    callback: (body: any, type: string) => Promise<any>
+}[])
 export const popupStore = $state({
     children: null as null | import("svelte").Snippet,
     mouseX: 0,

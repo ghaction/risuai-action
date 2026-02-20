@@ -1567,6 +1567,44 @@ interface RisuaiPluginAPI {
         func: Function
     ): Promise<void>;
 
+    // ========== Body Interceptors ==========
+
+    /**
+     * Registers a body interceptor that can read and replace HTTP request bodies on LLM requests.
+     * Sensitive fields like API keys are excluded from the body passed to the callback.
+     * Requires 'replacer' permission.
+     *
+     * @param callback - Function that receives the request body and request type, and returns the modified body
+     * @returns Object with an `id` for later unregistration, or null if permission was denied
+     *
+     * @example
+     * ```typescript
+     * const interceptor = await risuai.registerBodyIntercepter(async (body, type) => {
+     *   body.temperature = 0.5;
+     *   return body;
+     * });
+     *
+     * // Later, unregister:
+     * if (interceptor) {
+     *   await risuai.unregisterBodyIntercepter(interceptor.id);
+     * }
+     * ```
+     */
+    registerBodyIntercepter(
+        callback: (body: any, type: string) => any
+    ): Promise<{ id: string } | null>;
+
+    /**
+     * Unregisters a previously registered body interceptor
+     * @param id - The interceptor ID returned by registerBodyIntercepter
+     *
+     * @example
+     * ```typescript
+     * await risuai.unregisterBodyIntercepter(interceptor.id);
+     * ```
+     */
+    unregisterBodyIntercepter(id: string): Promise<void>;
+
     // ========== Asset Management ==========
 
     /**
@@ -1636,6 +1674,20 @@ interface RisuaiPluginAPI {
      * @returns Standard array of items
      */
     unwarpSafeArray<T>(safeArray: SafeClassArray<T>): Promise<T[]>;
+
+    /**
+     * Searches the LLM translation cache for entries whose key contains the given partial key
+     * @param partialKey - A substring to match against cache keys
+     * @returns Array of matching cache entries with key and value
+     */
+    searchTranslationCache(partialKey: string): Promise<{key: string, value: string}[]>;
+
+    /**
+     * Gets a single entry from the LLM translation cache by exact key
+     * @param key - The exact cache key to look up
+     * @returns The cached translation or null if not found
+     */
+    getTranslationCache(key: string): Promise<string | null>;
 }
 
 // ============================================================================

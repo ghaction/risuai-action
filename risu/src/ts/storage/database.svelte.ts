@@ -15,7 +15,7 @@ import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../p
 import { isTauri, isNodeServer } from "src/ts/platform"
 
 //APP_VERSION_POINT is to locate the app version in the database file for version bumping
-export let appVer = "2026.2.161" //<APP_VERSION_POINT>
+export let appVer = "2026.2.200" //<APP_VERSION_POINT>
 export let webAppSubVer = ''
 
 
@@ -554,6 +554,8 @@ export function setDatabase(data:Database){
     data.checkCorruption ??= false
     data.toggleConfirmRecommendedPreset ??= false
     data.useExperimentalGoogleTranslator ??= false
+    data.thinkingType ??= 'budget'
+    data.adaptiveThinkingEffort ??= 'high'
     if(data.antiClaudeOverload){ //migration
         data.antiClaudeOverload = false
         data.antiServerOverloads = true
@@ -634,6 +636,8 @@ export function setDatabase(data:Database){
         data.promptInfoInsideChat = false
     }
     data.createFolderOnBranch ??= true
+    data.hamburgerButtonBottom ??= false
+    data.dynamicModelRegistry ??= true
     changeLanguage(data.language)
     setDatabaseLite(data)
 }
@@ -1044,6 +1048,8 @@ export interface Database{
     toggleConfirmRecommendedPreset?: boolean
     useExperimentalGoogleTranslator:boolean
     thinkingTokens: number
+    thinkingType: 'off' | 'budget' | 'adaptive'
+    adaptiveThinkingEffort: 'low' | 'medium' | 'high' | 'max'
     antiServerOverloads: boolean
     hypaCustomSettings: {
         url: string,
@@ -1143,8 +1149,10 @@ export interface Database{
     echoMessage?:string
     echoDelay?:number
     createFolderOnBranch?:boolean
+    hamburgerButtonBottom?:boolean
     enableRemoteSaving?:boolean
     blockquoteStyling?:boolean
+    dynamicModelRegistry?:boolean
 }
 
 interface SeparateParameters{
@@ -1158,6 +1166,8 @@ interface SeparateParameters{
     presence_penalty?:number
     reasoning_effort?:number
     thinking_tokens?:number
+    thinking_type?: 'off' | 'budget' | 'adaptive'
+    adaptive_thinking_effort?: 'low' | 'medium' | 'high' | 'max'
     outputImageModal?:boolean
     verbosity?:number
 }
@@ -1493,6 +1503,8 @@ export interface botPreset{
     regex?:customscript[]
     reasonEffort?:number
     thinkingTokens?:number
+    thinkingType?: 'off' | 'budget' | 'adaptive'
+    adaptiveThinkingEffort?: 'low' | 'medium' | 'high' | 'max'
     outputImageModal?:boolean
     seperateModelsForAxModels?:boolean
     seperateModels?:{
@@ -1928,6 +1940,8 @@ export function saveCurrentPreset(){
         image: pres?.[db.botPresetsId]?.image ?? '',
         reasonEffort: db.reasoningEffort ?? 0,
         thinkingTokens: db.thinkingTokens ?? null,
+        thinkingType: db.thinkingType ?? 'budget',
+        adaptiveThinkingEffort: db.adaptiveThinkingEffort ?? 'high',
         outputImageModal: db.outputImageModal ?? false,
         seperateModelsForAxModels: db.doNotChangeSeperateModels ? false : db.seperateModelsForAxModels ?? false,
         seperateModels: db.doNotChangeSeperateModels ? null : safeStructuredClone(db.seperateModels),
@@ -2055,6 +2069,8 @@ export function setPreset(db:Database, newPres: botPreset){
     db.presetRegex = newPres.regex ?? []
     db.reasoningEffort = newPres.reasonEffort ?? 0
     db.thinkingTokens = newPres.thinkingTokens ?? null
+    db.thinkingType = newPres.thinkingType ?? 'budget'
+    db.adaptiveThinkingEffort = newPres.adaptiveThinkingEffort ?? 'high'
     db.outputImageModal = newPres.outputImageModal ?? false
     if(!db.doNotChangeSeperateModels){
         db.seperateModelsForAxModels = newPres.seperateModelsForAxModels ?? false

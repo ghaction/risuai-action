@@ -2,15 +2,16 @@ import { Sha256 } from "@aws-crypto/sha256-js"
 import { HttpRequest } from "@smithy/protocol-http"
 import { SignatureV4 } from "@smithy/signature-v4"
 import { fetchNative, globalFetch, textifyReadableStream } from "src/ts/globalApi.svelte"
-import { LLMFormat } from "src/ts/model/modellist"
+import { LLMFlags, LLMFormat } from "src/ts/model/modellist"
 import { registerClaudeObserver } from "src/ts/observer.svelte"
 import { getDatabase } from "src/ts/storage/database.svelte"
 import { replaceAsync, simplifySchema, sleep } from "src/ts/util"
 import { v4 } from "uuid"
 import type { MultiModal } from "../index.svelte"
 import { extractJSON } from "../templates/jsonSchema"
-import { applyParameters, type RequestDataArgumentExtended, type requestDataResponse, type StreamResponseChunk } from "./request"
 import { callTool, decodeToolCall, encodeToolCall } from "../mcp/mcp"
+import type { RequestDataArgumentExtended, requestDataResponse, StreamResponseChunk } from './request'
+import { applyParameters } from './shared'
 
 interface Claude3TextBlock {
     type: 'text',
@@ -356,7 +357,17 @@ export async function requestClaude(arg:RequestDataArgumentExtended):Promise<req
         'thinking_tokens': 'thinking.budget_tokens'
     }, arg.mode)
 
-    if(body?.thinking?.budget_tokens === 0){
+    // Handle thinking mode: off, adaptive, or budget
+    if(db.thinkingType === 'off'){
+        delete body.thinking
+    }
+    else if(db.thinkingType === 'adaptive' && arg.modelInfo.flags.includes(LLMFlags.claudeAdaptiveThinking)){
+        // Adaptive thinking mode
+        delete body.thinking
+        body.thinking = { type: 'adaptive' }
+        body.output_config = { effort: db.adaptiveThinkingEffort ?? 'high' }
+    }
+    else if(body?.thinking?.budget_tokens === 0){
         delete body.thinking
     }
     else if(body?.thinking?.budget_tokens && body?.thinking?.budget_tokens > 0){
@@ -412,7 +423,7 @@ export async function requestClaude(arg:RequestDataArgumentExtended):Promise<req
         params.anthropic_version = "bedrock-2023-05-31"
         delete params.model
         delete params.stream
-        if (params.thinking?.type === "enabled"){
+        if (params.thinking?.type === "enabled" || params.thinking?.type === "adaptive"){
             params.temperature = 1.0
             delete params.top_k
             delete params.top_p
@@ -457,7 +468,8 @@ export async function requestClaude(arg:RequestDataArgumentExtended):Promise<req
             body: params,
             headers: signed.headers,
             plainFetchForce: true,
-            chatId: arg.chatId
+            chatId: arg.chatId,
+            interceptor: 'anthropic_bedrock'
         })
 
         if(!res.ok){
@@ -583,7 +595,8 @@ export async function requestClaude(arg:RequestDataArgumentExtended):Promise<req
             }),
             "method": "POST",
             signal: arg.abortSignal,
-            headers: headers
+            headers: headers,
+            interceptor: 'anthropic_batching'
         })
 
         if(resp.status !== 200){
@@ -623,6 +636,7 @@ export async function requestClaude(arg:RequestDataArgumentExtended):Promise<req
                         "anthropic-version": "2023-06-01",
                     },
                     "signal": arg.abortSignal,
+                    "interceptor": 'anthropic_batching_status'
                 })
 
                 if(statusRes.status !== 200){
@@ -645,6 +659,7 @@ export async function requestClaude(arg:RequestDataArgumentExtended):Promise<req
                         "anthropic-version": "2023-06-01",
                     },
                     "signal": arg.abortSignal,
+                    "interceptor": 'anthropic_batching_results'
                 })
 
                 if(batchRes.status !== 200){
@@ -704,7 +719,9 @@ async function requestClaudeHTTP(replacerURL:string, headers:{[key:string]:strin
             body: JSON.stringify(body),
             headers: headers,
             method: "POST",
-            chatId: arg.chatId
+            chatId: arg.chatId,
+            signal: arg.abortSignal,
+            interceptor: 'anthropic_streaming'
         })
 
         if(res.status !== 200){
@@ -800,7 +817,9 @@ async function requestClaudeHTTP(replacerURL:string, headers:{[key:string]:strin
                                         body: JSON.stringify(body),
                                         headers: headers,
                                         method: "POST",
-                                        chatId: arg.chatId
+                                        chatId: arg.chatId,
+                                        signal: arg.abortSignal,
+                                        interceptor: 'anthropic_streaming_retry'
                                     })
                             
                                     if(res.status !== 200){
@@ -845,7 +864,8 @@ async function requestClaudeHTTP(replacerURL:string, headers:{[key:string]:strin
         body: body,
         headers: headers,
         method: "POST",
-        chatId: arg.chatId
+        chatId: arg.chatId,
+        interceptor: 'anthropic_http'
     })
 
     if(!res.ok){
