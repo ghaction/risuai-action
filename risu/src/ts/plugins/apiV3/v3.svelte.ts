@@ -36,6 +36,8 @@ import { LLMFlags, LLMFormat, LLMProvider, LLMTokenizer, type LLMModel } from "s
         - Note that Class or Callbacks inside arrays or objects are not supported
 */
 
+const pluginChannel = new Map<string, Function>();
+
 class SafeElement {
     #element: HTMLElement;
     __classType = 'REMOTE_REQUIRED' as const;
@@ -520,22 +522,26 @@ type PluginV3ProviderOptions = PluginV2ProviderOptions & {
 
 export const customV3ProviderMetaStore:LLMModel[] = []
 
-const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLogs'|'db'|'mainDom'|'replacer'|'provider') => {
+const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLogs'|'db'|'mainDom'|'replacer'|'provider', requireReconfirm: boolean = false) => {
     if(permissionGivenPlugins.has(pluginName)){
         return true;
     }
     if(permissionDeniedPlugins.has(pluginName)){
         return false;
     }
-    const pluginHash = await hasher(
-        new TextEncoder().encode(
-            DBState.db.plugins.find(p => p.name === pluginName)?.script
-        )
-    ) + `_${permissionDesc}`;
 
-    if(await permissionForage.getItem(pluginHash)){
-        permissionGivenPlugins.add(pluginName);
-        return true;
+    let pluginHash = ''
+    if(!requireReconfirm){
+        pluginHash = await hasher(
+            new TextEncoder().encode(
+                DBState.db.plugins.find(p => p.name === pluginName)?.script
+            )
+        ) + `_${permissionDesc}`;
+
+        if(await permissionForage.getItem(pluginHash)){
+            permissionGivenPlugins.add(pluginName);
+            return true;
+        }   
     }
 
     let alertTitle =
@@ -549,7 +555,7 @@ const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLog
         return false;
     }
     const conf = await alertConfirm(alertTitle)
-    if(conf){
+    if(conf && pluginHash){
         permissionGivenPlugins.add(pluginName);
         await permissionForage.setItem(pluginHash, true);
         return true;
@@ -589,6 +595,7 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
         getChar: oldApis.getChar,
         setChar: oldApis.setChar,
         addProvider: (name: string, func: (arg: PluginV2ProviderArgument, abortSignal?: AbortSignal) => Promise<{ success: boolean, content: string }>, options?: PluginV3ProviderOptions) => {
+            console.warn(`addProvider is a powerful API that can potentially be unsafe if used incorrectly. addProvider's functionality might be limited or changed in future updates to ensure security. please use other APIs if possible.`);
             let provs = get(customProviderStore)
             provs.push(name)
             pluginV2.providers.set(name, async (arg, abortSignal) => {
@@ -998,6 +1005,15 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
                     'key': '_keySafeLocalStorage',
                     'keys': '_keysSafeLocalStorage',
                 }
+            }
+        },
+        addPluginChannelListener: (channelName: string, callback: Function) => {
+            pluginChannel.set(channelName, callback);
+        },
+        postPluginChannelMessage: (channelName: string, message: any) => {
+            const callback = pluginChannel.get(channelName);
+            if(callback){
+                callback(message);
             }
         }
     }

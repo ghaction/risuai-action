@@ -265,7 +265,8 @@ await (async function() {
 export class SandboxHost {
     private iframe: HTMLIFrameElement;
     private apiFactory: any;
-
+    private nonce = crypto.randomUUID();
+    private csp = `connect-src 'none'; script-src 'nonce-${this.nonce}' https:; frame-src 'none'; object-src 'none'; style-src * 'unsafe-inline';`;
 
     private instanceRegistry = new Map<string, any>();
 
@@ -450,7 +451,7 @@ export class SandboxHost {
         this.iframe.sandbox.add('allow-modals')
         this.iframe.sandbox.add('allow-downloads')
 
-        this.iframe.setAttribute('csp', "connect-src 'none'");
+        this.iframe.setAttribute('csp', this.csp);
 
         const messageHandler = async (event: MessageEvent) => {
             if (event.source !== this.iframe.contentWindow) return;
@@ -523,13 +524,17 @@ export class SandboxHost {
         const html = `
       <!DOCTYPE html>
       <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="${this.csp}">
+      </head>
       <body>
         <style>
             body {
                 background-color: transparent;
             }
         </style>
-        <script>
+        <script nonce="${this.nonce}">
             (async () => {
                 ${GUEST_BRIDGE_SCRIPT}
                     

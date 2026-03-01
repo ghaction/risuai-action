@@ -15,7 +15,7 @@ import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../p
 import { isTauri, isNodeServer } from "src/ts/platform"
 
 //APP_VERSION_POINT is to locate the app version in the database file for version bumping
-export let appVer = "2026.2.241" //<APP_VERSION_POINT>
+export let appVer = "2026.2.281" //<APP_VERSION_POINT>
 export let webAppSubVer = ''
 
 
@@ -523,8 +523,10 @@ export function setDatabase(data:Database){
         memory: {},
         emotion: {},
         translate: {},
-        otherAx: {}
+        otherAx: {},
+        overrides: {}
     }
+    data.seperateParameters.overrides ??= {}
     data.customFlags ??= []
     data.enableCustomFlags ??= false
     data.assetMaxDifference ??= 4
@@ -638,6 +640,10 @@ export function setDatabase(data:Database){
     data.createFolderOnBranch ??= true
     data.hamburgerButtonBottom ??= false
     data.dynamicModelRegistry ??= true
+    
+    // If the user uses plugins, its probably better to enable RisuAI Pro Tools by default
+    // Because its likely they are power users who would benefit from the features
+    data.enableRisuaiProTools ??= data.plugins.length > 0
     changeLanguage(data.language)
     setDatabaseLite(data)
 }
@@ -1012,6 +1018,7 @@ export interface Database{
         emotion: SeparateParameters,
         translate: SeparateParameters,
         otherAx: SeparateParameters
+        overrides: Record<string, SeparateParameters>
     }
     translateBeforeHTMLFormatting:boolean
     autoTranslateCachedOnly:boolean
@@ -1153,9 +1160,13 @@ export interface Database{
     enableRemoteSaving?:boolean
     blockquoteStyling?:boolean
     dynamicModelRegistry?:boolean
+    enableRisuaiProTools?:boolean
+    epEnabled?:boolean
+    seperateParametersByModel?:boolean
+    disableSeperateParameterChangeOnPresetChange?:boolean
 }
 
-interface SeparateParameters{
+export interface SeparateParameters{
     temperature?:number
     top_k?:number
     repetition_penalty?:number
@@ -1493,6 +1504,7 @@ export interface botPreset{
         emotion: SeparateParameters,
         translate: SeparateParameters,
         otherAx: SeparateParameters
+        overrides: Record<string, SeparateParameters>
     }
     customAPIFormat?:LLMFormat
     systemContentReplacement?: string
@@ -2055,12 +2067,6 @@ export function setPreset(db:Database, newPres: botPreset){
     db.groupOtherBotRole = newPres.groupOtherBotRole ?? 'user'
     db.groupTemplate = newPres.groupTemplate ?? ''
     db.seperateParametersEnabled = newPres.seperateParametersEnabled ?? false
-    db.seperateParameters = newPres.seperateParameters ? safeStructuredClone(newPres.seperateParameters) : {
-        memory: {},
-        emotion: {},
-        translate: {},
-        otherAx: {}
-    }
     db.customAPIFormat = safeStructuredClone(newPres.customAPIFormat) ?? LLMFormat.OpenAICompatible
     db.systemContentReplacement = newPres.systemContentReplacement ?? ''
     db.systemRoleReplacement = newPres.systemRoleReplacement ?? 'user'
@@ -2090,6 +2096,18 @@ export function setPreset(db:Database, newPres: botPreset){
             model: []
         }
         db.fallbackWhenBlankResponse = newPres.fallbackWhenBlankResponse ?? false
+    }
+    if(db.disableSeperateParameterChangeOnPresetChange){
+        db.seperateParameters = safeStructuredClone(db.seperateParameters)
+    }
+    else{
+         db.seperateParameters = newPres.seperateParameters ? safeStructuredClone(newPres.seperateParameters) : {
+            memory: {},
+            emotion: {},
+            translate: {},
+            otherAx: {},
+            overrides: {}
+        }   
     }
     db.modelTools = safeStructuredClone(newPres.modelTools ?? [])
     db.verbosity = newPres.verbosity ?? 1
