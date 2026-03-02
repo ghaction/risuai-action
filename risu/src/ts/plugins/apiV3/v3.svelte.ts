@@ -522,7 +522,7 @@ type PluginV3ProviderOptions = PluginV2ProviderOptions & {
 
 export const customV3ProviderMetaStore:LLMModel[] = []
 
-const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLogs'|'db'|'mainDom'|'replacer'|'provider', requireReconfirm: boolean = false) => {
+const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLogs'|'db'|'mainDom'|'replacer'|'provider', reconfirm: boolean|'periodically' = false) => {
     if(permissionGivenPlugins.has(pluginName)){
         return true;
     }
@@ -531,18 +531,31 @@ const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLog
     }
 
     let pluginHash = ''
-    if(!requireReconfirm){
-        pluginHash = await hasher(
-            new TextEncoder().encode(
-                DBState.db.plugins.find(p => p.name === pluginName)?.script
-            )
-        ) + `_${permissionDesc}`;
 
-        if(await permissionForage.getItem(pluginHash)){
-            permissionGivenPlugins.add(pluginName);
-            return true;
-        }   
+    let requiresReconfirm = false;
+
+    if(reconfirm === 'periodically'){
+        const lastGrantTime:number = await permissionForage.getItem(pluginName + '_' + permissionDesc + '_lastGrantTime');
+        const now = Date.now();
+        if(!lastGrantTime || now - lastGrantTime > 3 * 24 * 60 * 60 * 1000){ //3 days
+            requiresReconfirm = true;
+        }
     }
+    else if(reconfirm === true){
+        requiresReconfirm = true;
+    }
+
+    pluginHash = await hasher(
+        new TextEncoder().encode(
+            DBState.db.plugins.find(p => p.name === pluginName)?.script
+        )
+    ) + `_${permissionDesc}`;
+
+    if(!requiresReconfirm &&await permissionForage.getItem(pluginHash)){
+        permissionGivenPlugins.add(pluginName);
+        return true;
+    }   
+    
 
     let alertTitle =
         permissionDesc === 'fetchLogs' ? language.fetchLogConsent.replace("{}", pluginName)
@@ -558,6 +571,9 @@ const getPluginPermission = async (pluginName: string, permissionDesc: 'fetchLog
     if(conf && pluginHash){
         permissionGivenPlugins.add(pluginName);
         await permissionForage.setItem(pluginHash, true);
+        if(reconfirm === 'periodically'){
+            await permissionForage.setItem(pluginName + '_' + permissionDesc + '_lastGrantTime', Date.now());
+        }
         return true;
     }
     permissionDeniedPlugins.add(pluginName);
@@ -599,7 +615,7 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             let provs = get(customProviderStore)
             provs.push(name)
             pluginV2.providers.set(name, async (arg, abortSignal) => {
-               await getPluginPermission(plugin.name, 'provider');
+               await getPluginPermission(plugin.name, 'provider', 'periodically');
                //mode is overridden to v3, due to vulnerabilities using mode.
                //Alternative to mode will be added in future
                arg.mode = 'v3'
@@ -626,7 +642,7 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
         removeRisuScriptHandler: oldApis.removeRisuScriptHandler,
         addRisuReplacer: async (name:string,func:Function) => {
             //permission check for replacer
-            const conf = await getPluginPermission(plugin.name, 'replacer');
+            const conf = await getPluginPermission(plugin.name, 'replacer', 'periodically');
             if(!conf){
                 return;
             }
@@ -640,7 +656,7 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
         saveAsset: oldApis.saveAsset,
         //Same functionality, but new implementation
         getDatabase: async (includeOnly:string[]|'all' = 'all') => {
-            const conf = await getPluginPermission(plugin.name, 'db');
+            const conf = await getPluginPermission(plugin.name, 'db', 'periodically');
             if(!conf){
                 return null;
             }
@@ -1008,10 +1024,10 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             }
         },
         addPluginChannelListener: (channelName: string, callback: Function) => {
-            pluginChannel.set(channelName, callback);
+            pluginChannel.set(plugin.name + channelName, callback);
         },
-        postPluginChannelMessage: (channelName: string, message: any) => {
-            const callback = pluginChannel.get(channelName);
+        postPluginChannelMessage: (pluginName: string, channelName: string, message: any) => {
+            const callback = pluginChannel.get(pluginName + channelName);
             if(callback){
                 callback(message);
             }
