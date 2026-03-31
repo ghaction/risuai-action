@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { DynamicGUI, settingsOpen, sideBarStore, ShowRealmFrameStore, openPresetList, openPersonaList, MobileGUI, CustomGUISettingMenuStore, loadedStore, alertStore, LoadingStatusState, bookmarkListOpen, popupStore, easyPanelStore, popUpEditorStore, loadoutModalStore } from './ts/stores.svelte';
+    import { DynamicGUI, settingsOpen, sideBarStore, ShowRealmFrameStore, openPresetList, openPersonaList, MobileGUI, CustomGUISettingMenuStore, loadedStore, alertStore, LoadingStatusState, bookmarkListOpen, popupStore, easyPanelStore, popUpEditorStore, loadoutModalStore, irisStore } from './ts/stores.svelte';
     import Sidebar from './lib/SideBars/Sidebar.svelte';
     import { DBState } from './ts/stores.svelte';
     import ChatScreen from './lib/ChatScreens/ChatScreen.svelte';
@@ -33,6 +33,7 @@
     import sendSound from './etc/send.mp3'
     import PopupEditor from './lib/Others/PopupEditor.svelte';
     import LoadoutModal from './lib/Others/LoadoutModal.svelte';
+    import IrisModal from './lib/Others/IrisModal.svelte';
 
 
   
@@ -91,7 +92,7 @@
             console.log("Starting silent audio to keep session alive")
             const silentAudio = new Audio(sendSound);
             silentAudio.loop = true;
-            silentAudio.volume = 0.001;
+            silentAudio.volume = 0.000001;
             silentAudio.play();
             keepingSessionAlive = true;
             break
@@ -166,7 +167,7 @@
                     {/if}
                 </div>
             </div>
-            <span class="absolute top-4 left-4 font-bold text-[#bbbbbb] text-md md:text-lg">RisyGTP-9</span>
+            <span class="absolute top-4 left-4 font-bold text-[#bbbbbb] text-md md:text-lg">RisyGTP 9+ Mytho Ultra Free</span>
         </div>
     {:else if !$loadedStore}
         <div class="w-full h-full flex justify-center items-center text-textcolor text-xl bg-gray-900 flex-col">
@@ -247,5 +248,8 @@
     {/if}
     {#if loadoutModalStore.open}
         <LoadoutModal />
+    {/if}
+    {#if irisStore.open}
+        <IrisModal />
     {/if}
 </main>

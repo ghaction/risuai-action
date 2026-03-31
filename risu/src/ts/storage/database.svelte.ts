@@ -15,7 +15,7 @@ import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../p
 import { isTauri, isNodeServer } from "src/ts/platform"
 
 //APP_VERSION_POINT is to locate the app version in the database file for version bumping
-export let appVer = "2026.3.332" //<APP_VERSION_POINT>
+export let appVer = "2026.3.334" //<APP_VERSION_POINT>
 export let webAppSubVer = ''
 
 
@@ -1193,6 +1193,7 @@ export interface Database{
     keepSessionAlive: 'off' | 'pip' | 'sound'
     longPressToPopupEditor?: boolean
     loadouts: Loadout[]
+    disableAprilFools?:boolean
 }
 
 export interface SeparateParameters{
