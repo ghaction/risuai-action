@@ -1,0 +1,3 @@
+import{P as f,f as w}from"./pdf--VJKfo0y.js";import{t as l}from"./pdf.worker-C0Db1Qj6.js";w.workerSrc=l;async function x(s,c){const{scale:p=1.5,format:i="png",quality:m=.8}=c||{},o=await f({data:s,cMapUrl:"https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/",cMapPacked:!0}).promise,n=[];for(let e=1;e<=o.numPages;e++){const r=await o.getPage(e),a=r.getViewport({scale:p}),t=document.createElement("canvas"),d=t.getContext("2d");t.height=a.height,t.width=a.width;const g={canvasContext:d,viewport:a};await r.render(g).promise;const _=t.toDataURL(`image/${i}`,m);n.push(_)}return n}export{x as convertPdfToImages};
+
+//# sourceMappingURL=pdf-BOhQ8qaz.js.map

@@ -15,7 +15,7 @@ import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../p
 import { isTauri, isNodeServer } from "src/ts/platform"
 
 //APP_VERSION_POINT is to locate the app version in the database file for version bumping
-export let appVer = "2026.3.334" //<APP_VERSION_POINT>
+export let appVer = "2026.3.336" //<APP_VERSION_POINT>
 export let webAppSubVer = ''
 
 
@@ -1921,6 +1921,10 @@ export const defaultSdDataFunc = () =>{
 export function saveCurrentPreset(){
     let db = getDatabase()
     let pres = db.botPresets
+
+    if(db.botPresetsId === -1){
+        return
+    }
     const savedPreset:botPreset =  {
         name: pres[db.botPresetsId].name,
         apiType: db.apiType,

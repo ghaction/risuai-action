@@ -32,6 +32,12 @@ if(existsSync(passwordPath)){
     password = readFileSync(passwordPath, 'utf-8')
 }
 
+const knownPublicKeysPath = path.join(process.cwd(), 'save', '__known_public_key_hashes.json')
+if(existsSync(knownPublicKeysPath)){
+    const knownPublicKeysRaw = readFileSync(knownPublicKeysPath, 'utf-8');
+    knownPublicKeysHashes = JSON.parse(knownPublicKeysRaw);
+}
+
 const authCodePath = path.join(process.cwd(), 'save', '__authcode')
 const hexRegex = /^[0-9a-fA-F]+$/;
 const PROXY_STREAM_DEFAULT_TIMEOUT_MS = 600000;
@@ -48,14 +54,14 @@ const PROXY_STREAM_MAX_BODY_BASE64_BYTES = 8 * 1024 * 1024;
 const proxyStreamJobs = new Map();
 const authenticatedRouteLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 90,
+    max: 2000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests. Please retry shortly.' }
 });
 const authRouteLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 90,
+    max: 2000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests. Please retry shortly.' }
@@ -1141,6 +1147,7 @@ app.post('/api/login', loginRouteLimiter, async (req, res) => {
     }
     if(req.body.password && req.body.password.trim() === password.trim()){
         knownPublicKeysHashes.push(await hashJSON(req.body.publicKey))
+        fs.writeFileSync(knownPublicKeysPath, JSON.stringify(knownPublicKeysHashes), 'utf-8')
         res.send({status:'success'})
     }
     else{
@@ -1170,7 +1177,7 @@ app.post('/api/set_password', async (req, res) => {
     }
 })
 
-app.get('/api/read', authRouteLimiter, async (req, res, next) => {
+app.get('/api/read', authenticatedRouteLimiter, async (req, res, next) => {
     if(!await checkAuth(req, res)){
         return;
     }
@@ -1202,7 +1209,7 @@ app.get('/api/read', authRouteLimiter, async (req, res, next) => {
     }
 });
 
-app.get('/api/remove', authRouteLimiter, async (req, res, next) => {
+app.get('/api/remove', authenticatedRouteLimiter, async (req, res, next) => {
     if(!await checkAuth(req, res)){
         return;
     }
@@ -1230,7 +1237,7 @@ app.get('/api/remove', authRouteLimiter, async (req, res, next) => {
     }
 });
 
-app.get('/api/list', authRouteLimiter, async (req, res, next) => {
+app.get('/api/list', authenticatedRouteLimiter, async (req, res, next) => {
     if(!await checkAuth(req, res)){
         return;
     }
@@ -1247,7 +1254,7 @@ app.get('/api/list', authRouteLimiter, async (req, res, next) => {
     }
 });
 
-app.post('/api/write', authRouteLimiter, async (req, res, next) => {
+app.post('/api/write', authenticatedRouteLimiter, async (req, res, next) => {
     if(!await checkAuth(req, res)){
         return;
     }
