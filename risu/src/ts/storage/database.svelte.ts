@@ -12,10 +12,12 @@ import { defaultColorScheme, type ColorScheme } from '../gui/colorscheme';
 import type { PromptItem, PromptSettings } from '../process/prompt';
 import type { OobaChatCompletionRequestParams } from '../model/ooba';
 import { type HypaV3Settings, type HypaV3Preset, createHypaV3Preset } from '../process/memory/hypav3'
+import { normalizeTranslatorPresetState, type TranslatorPreset } from '../translator/presets'
 import { isTauri, isNodeServer } from "src/ts/platform"
+import { safeStructuredClone } from '../polyfill';
 
 //APP_VERSION_POINT is to locate the app version in the database file for version bumping
-export let appVer = "2026.3.336" //<APP_VERSION_POINT>
+export let appVer = "2026.4.120" //<APP_VERSION_POINT>
 export let webAppSubVer = ''
 
 
@@ -364,6 +366,12 @@ export function setDatabase(data:Database){
     data.ainconfig ??= safeStructuredClone(defaultAIN)
     data.openrouterKey ??= ''
     data.openrouterRequestModel ??= 'openai/gpt-3.5-turbo'
+    data.nanogptKey ??= ''
+    data.nanogptRequestModel ??= ''
+    data.nanogptRequestModelName ??= ''
+    data.nanogptProvider ??= ''
+    data.nanogptSubscriptionState ??= ''
+    data.nanogptUseSubscriptionEndpoint ??= false
     data.NAIsettings ??= safeStructuredClone(prebuiltNAIpresets)
     data.assetWidth ??= -1
     data.animationSpeed ??= 0.4
@@ -569,6 +577,7 @@ export function setDatabase(data:Database){
         )
     }
     data.hypaV3PresetId ??= 0
+    normalizeTranslatorPresetState(data)
     data.showDeprecatedTriggerV2 ??= false
     data.returnCSSError ??= true
     data.realmDirectOpen ??= false
@@ -625,7 +634,6 @@ export function setDatabase(data:Database){
     data.rememberToolUsage ??= true
     data.simplifiedToolUse ??= false
     data.streamGeminiThoughts ??= false
-    data.sourcemapTranslate ??= false
     data.settingsCloseButtonSize ??= 24
     data.hideAllImages ??= false
     data.ImagenModel ??= 'imagen-4.0-generate-001'
@@ -883,6 +891,12 @@ export interface Database{
     openrouterRequestModel:string
     openrouterKey:string
     openrouterMiddleOut:boolean
+    nanogptKey:string
+    nanogptRequestModel:string
+    nanogptRequestModelName:string
+    nanogptProvider:string
+    nanogptSubscriptionState:string
+    nanogptUseSubscriptionEndpoint:boolean
     openrouterFallback:boolean
     selectedPersona:number
     personas:{
@@ -934,6 +948,8 @@ export interface Database{
     allowAllExtentionFiles?:boolean
     translatorPrompt:string
     translatorMaxResponse:number
+    translatorPresets: TranslatorPreset[]
+    translatorPresetId: number
     top_p: number,
     google: {
         accessToken: string
@@ -1169,7 +1185,6 @@ export interface Database{
         reference_image: string
         reference_base64image: string
     }
-    sourcemapTranslate:boolean
     settingsCloseButtonSize:number
     promptDiffPrefs:PromptDiffPrefs
     enableBookmark?: boolean
@@ -1387,6 +1402,8 @@ export interface character{
     prebuiltAssetStyle?:string
     prebuiltAssetExclude?:string[]
     modules?:string[]
+    coldstorage?:string
+    coldStoragedChats?:string[]
 }
 
 
@@ -1465,6 +1482,8 @@ export interface groupChat{
     prebuiltAssetStyle?:string
     prebuiltAssetExclude?:string[]
     modules?:string[]
+    coldstorage?:string
+    coldStoragedChats?:string[]
 }
 
 export interface botPreset{
@@ -1919,7 +1938,7 @@ export const defaultSdDataFunc = () =>{
 }
 
 export function saveCurrentPreset(){
-    let db = getDatabase()
+    let db = DBState.db
     let pres = db.botPresets
 
     if(db.botPresetsId === -1){
@@ -2015,29 +2034,26 @@ export function saveCurrentPreset(){
         pres[db.botPresetsId] = savedPreset
     }
     db.botPresets = pres
-    setDatabase(db)
 }
 
 export function copyPreset(id:number){
     saveCurrentPreset()
-    let db = getDatabase()
+    let db = DBState.db
     let pres = db.botPresets
     const newPres = safeStructuredClone(pres[id])
     newPres.name += " Copy"
     db.botPresets.push(newPres)
-    setDatabase(db)
 }
 
 export function changeToPreset(id =0, savecurrent = true){
     if(savecurrent){
         saveCurrentPreset()
     }
-    let db = getDatabase()
+    let db = DBState.db
     let pres = db.botPresets
     const newPres = pres[id]
     db.botPresetsId = id
-    db = setPreset(db, newPres)
-    setDatabase(db)
+    setPreset(db, newPres)
 }
 
 export function setPreset(db:Database, newPres: botPreset){
@@ -2247,7 +2263,7 @@ export async function importPreset(f:{
         pre = {...presetTemplate,...(JSON.parse(Buffer.from(f.data).toString('utf-8')))}
         console.log(pre)
     }
-    let db = getDatabase()
+    let db = DBState.db
     if(pre.presetVersion && pre.presetVersion >= 3){
         //NAI preset
         const pr = safeStructuredClone(prebuiltPresets.NAI)
@@ -2269,7 +2285,6 @@ export async function importPreset(f:{
         pr.NAISettings.mirostat_tau = pre.parameters.mirostat_tau
         pr.name = pre.name ?? "Imported"
         db.botPresets.push(pr)
-        setDatabase(db)
         return
     }
 
@@ -2375,7 +2390,6 @@ export async function importPreset(f:{
         }
         pr.name = "Imported ST Preset"
         db.botPresets.push(pr)
-        setDatabase(db)
         return
     }
     pre.name ??= "Imported"
@@ -2383,5 +2397,4 @@ export async function importPreset(f:{
         db.botPresets = []
     }
     db.botPresets.push(pre)
-    setDatabase(db)
 }

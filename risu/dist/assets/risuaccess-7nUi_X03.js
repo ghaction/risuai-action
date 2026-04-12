@@ -1,0 +1,1 @@
+import{t as e}from"./risuaccess-BDlA0eEB.js";export{e as RisuAccessClient};
