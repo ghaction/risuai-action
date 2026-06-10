@@ -3,7 +3,7 @@ import { SandboxHost } from "./factory";
 import { getDatabase } from "src/ts/storage/database.svelte";
 import { SafeLocalPluginStorage, tagWhitelist } from "../pluginSafeClass";
 import DOMPurify from 'dompurify';
-import { additionalChatMenu, additionalFloatingActionButtons, additionalHamburgerMenu, additionalSettingsMenu, bodyIntercepterStore, DBState, selectedCharID, type MenuDef } from "src/ts/stores.svelte";
+import { additionalChatMenu, additionalFloatingActionButtons, additionalHamburgerMenu, additionalSettingsMenu, bodyIntercepterStore, chatPanelStore, DBState, selectedCharID, type MenuDef } from "src/ts/stores.svelte";
 import { v4 } from "uuid";
 import { sleep } from "src/ts/util";
 import { alertConfirm, alertError, alertNormal } from "src/ts/alert";
@@ -21,6 +21,18 @@ import { sendChat as processSendChat, doingChat } from "src/ts/process/index.sve
 import { getModelInfo } from "src/ts/model/modellist";
 import type { ModelModeExtended } from "src/ts/process/request/shared";
 import { requestChatDataMain } from "src/ts/process/request/request";
+import { getModuleLorebooks } from "src/ts/process/modules";
+import {
+    registerTTSPreprocessor,
+    unregisterTTSPreprocessor,
+    registerTTSPostprocessor,
+    unregisterTTSPostprocessor,
+    type BeforeTTSContext,
+    type BeforeTTSResult,
+    type AfterTTSContext,
+    type AfterTTSResult,
+    type TTSHookFn,
+} from "src/ts/process/ttsHooks";
 
 /*
     V3 API for RisuAI Plugins
@@ -483,6 +495,21 @@ const makeMenuUnloadCallback = (menuId:string, menuStore: MenuDef[]) =>{
     }
 }
 
+const removeChatPanel = (id: string) => {
+    const index = chatPanelStore.findIndex(item => item.id === id);
+    if(index !== -1){
+        chatPanelStore.splice(index, 1);
+    }
+}
+
+const removePluginChatPanels = (pluginName: string) => {
+    for(let i = chatPanelStore.length - 1; i >= 0; i--){
+        if(chatPanelStore[i].pluginName === pluginName){
+            chatPanelStore.splice(i, 1);
+        }
+    }
+}
+
 const unloadV3Plugin = async (pluginName: string) => {
     const callbacks = pluginUnloadCallbacks.get(pluginName);
     const instance = v3PluginInstances.find(p => p.name === pluginName);
@@ -667,6 +694,18 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             }
             customV3ProviderMetaStore.push(modelData);
         },
+        addTTSPreprocessor: async (
+            func: TTSHookFn<BeforeTTSContext, BeforeTTSResult>,
+        ) => {
+            registerTTSPreprocessor(func);
+            addPluginUnloadCallback(plugin.name, () => unregisterTTSPreprocessor(func));
+        },
+        addTTSPostprocessor: async (
+            func: TTSHookFn<AfterTTSContext, AfterTTSResult>,
+        ) => {
+            registerTTSPostprocessor(func);
+            addPluginUnloadCallback(plugin.name, () => unregisterTTSPostprocessor(func));
+        },
         addRisuScriptHandler: oldApis.addRisuScriptHandler,
         removeRisuScriptHandler: oldApis.removeRisuScriptHandler,
         addRisuReplacer: async (name:string,func:Function) => {
@@ -834,6 +873,18 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             const db = DBState.db
             const charId = get(selectedCharID)
             return db.characters[charId].chatPage
+        },
+        getCurrentLorebookEntries: () => {
+            const charId = get(selectedCharID)
+            const char = DBState.db.characters[charId]
+            if(!char){
+                return []
+            }
+            const page = char.chatPage
+            const characterLore = char.globalLore ?? []
+            const chatLore = char.chats?.[page]?.localLore ?? []
+            const moduleLore = getModuleLorebooks()
+            return $state.snapshot(characterLore.concat(chatLore).concat(moduleLore))
         },
         //New names for character APIs, to match API naming conventions
         getCharacter: oldApis.getChar,
@@ -1015,6 +1066,43 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             }
             return {id};
         },
+        setChatPanel: (
+            content: string | null,
+            options: {
+                id?: string,
+                className?: string,
+            } = {}
+        ) => {
+            const id = options.id || `${plugin.name}:default`;
+
+            if(content === null || content === ''){
+                removeChatPanel(id);
+                return {id};
+            }
+
+            if(typeof content !== 'string'){
+                throw new Error("content must be a string or null");
+            }
+
+            const panel = {
+                id,
+                pluginName: plugin.name,
+                html: DOMPurify.sanitize(content),
+                className: typeof options.className === 'string'
+                    ? DOMPurify.sanitize(options.className, {ALLOWED_TAGS: [], ALLOWED_ATTR: []})
+                    : undefined,
+            }
+
+            const existingIndex = chatPanelStore.findIndex(item => item.id === id);
+            if(existingIndex !== -1){
+                chatPanelStore[existingIndex] = panel;
+            }
+            else{
+                chatPanelStore.push(panel);
+            }
+            addPluginUnloadCallback(plugin.name, () => removePluginChatPanels(plugin.name));
+            return {id};
+        },
         registerMCP: registerMCPModule,
         unregisterMCP: unregisterMCPModule,
         unregisterUIPart: (id: string) => {
@@ -1029,6 +1117,7 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             removeFromMenuStore(additionalFloatingActionButtons);
             removeFromMenuStore(additionalHamburgerMenu);
             removeFromMenuStore(additionalChatMenu);
+            removeChatPanel(id);
         },
         log: (message:string) => {
             console.log(`[RisuAI Plugin: ${plugin.name}] ${message}`);
@@ -1144,14 +1233,21 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
             mode: ModelModeExtended
             messages: OpenAIChat[]
             staticModel?: string
+            allowPlugins?: boolean
         }) => {
             return requestChatDataMain({
                 formated: options.messages,
                 bias: {},
                 staticModel: options.staticModel,
 
-                //Executing plugin provider is block because it can be used for loopholes for ipc right now.
-                blockPlugins: true
+                // Calls into plugin-provided models are blocked by default to
+                // guard against accidental IPC loops between provider plugins.
+                // Plugin authors who need to reach the user's plugin-supplied
+                // main or auxiliary model (e.g. a TTS preprocessor that
+                // rewrites text with the configured otherAx model) can opt in
+                // explicitly with `allowPlugins: true`, accepting responsibility
+                // for avoiding provider-to-provider call loops.
+                blockPlugins: !options.allowPlugins,
             }, options.mode)
         },
         sendChat: async (message: string) => {
@@ -1166,6 +1262,11 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
 
             if(get(doingChat)){
                 throw new Error("A chat is already in progress");
+            }
+
+            if(getModelInfo(DBState.db.aiModel).id.startsWith('pluginmodel:::')){
+                // Executing plugin provider is block because it can be used for loopholes for ipc right now.
+                throw new Error("Sending chat with plugin-based model is currently blocked");
             }
 
             const charId = get(selectedCharID);
@@ -1187,12 +1288,13 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
                 });
             }
 
-            if(getModelInfo(DBState.db.aiModel).id.startsWith('pluginmodel:::')){
-                // Executing plugin provider is block because it can be used for loopholes for ipc right now.
-                throw new Error("Sending chat with plugin-based model is currently blocked");    
+            try {
+                await processSendChat(-1, {});
+            } finally {
+                // Plugin API path does not pass through the UI unlock logic,
+                // so release doingChat here on both success and failure.
+                doingChat.set(false);
             }
-
-            await processSendChat(-1, {});
 
             return true;
         },
@@ -1209,7 +1311,7 @@ const makeRisuaiAPIV3 = (iframe:HTMLIFrameElement,plugin:RisuPlugin) => {
                 return;
             }
 
-            if(!receiverPlugin.allowedIPC?.includes(pluginName)){
+            if(!receiverPlugin.allowedIPC?.includes(currentPluginName)){
                 console.warn(`[RisuAI Plugin: ${currentPluginName}] Attempted to send message to plugin '${pluginName}' but receiver plugin does not allow IPC communication from this plugin. declare //@allowed-ipc ${currentPluginName} in the reciver plugin script to allow IPC communication.`);
                 return;
             }

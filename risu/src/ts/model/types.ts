@@ -23,7 +23,10 @@ export const LLMFlags = {
     deepSeekThinkingOutput: 19,
     noCivilIntegrity: 20,
     claudeThinking: 21,
-    claudeAdaptiveThinking: 22
+    claudeAdaptiveThinking: 22,
+    claudeXHighEffort: 23,
+    deepSeekThinkingToggle: 24,
+    noStructuredOutput: 25
 } as const;
 export type LLMFlags = (typeof LLMFlags)[keyof typeof LLMFlags];
 
@@ -43,7 +46,8 @@ export const LLMProvider = {
     DeepSeek: 12,
     DeepInfra: 13,
     Echo: 14,
-    NanoGPT: 15
+    NanoGPT: 15,
+    Ollama: 16
 } as const;
 export type LLMProvider = (typeof LLMProvider)[keyof typeof LLMProvider];
 
@@ -89,7 +93,10 @@ export const LLMTokenizer = {
     GoogleCloud: 10,
     Cohere: 11,
     Local: 12,
-    DeepSeek: 13
+    DeepSeek: 13,
+    DeepSeekV4: 14,
+    GLM4: 15,
+    GLM5: 16
 } as const;
 export type LLMTokenizer = (typeof LLMTokenizer)[keyof typeof LLMTokenizer];
 
@@ -125,9 +132,14 @@ export const ProviderNames = new Map<LLMProvider, string>([
     [LLMProvider.DeepSeek, 'DeepSeek'],
     [LLMProvider.DeepInfra, 'DeepInfra'],
     [LLMProvider.Echo, 'For Developer'],
-    [LLMProvider.NanoGPT, 'NanoGPT']
+    [LLMProvider.NanoGPT, 'NanoGPT'],
+    [LLMProvider.Ollama, 'Ollama']
 ])
 
 export const OpenAIParameters:LLMParameter[] = ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty']
-export const GPT5Parameters:LLMParameter[] = ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty', 'reasoning_effort','verbosity']
+const GPT5BaseParameters:LLMParameter[] = ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty', 'reasoning_effort', 'verbosity']
+export const GPT5Parameters:LLMParameter[] = [...GPT5BaseParameters]
+export const GPT5NoneParameters:LLMParameter[] = [...GPT5BaseParameters, 'reasoning_effort_none']
+export const GPT5XHighParameters:LLMParameter[] = [...GPT5NoneParameters, 'reasoning_effort_xhigh']
+export const GPT5ProParameters:LLMParameter[] = [...GPT5BaseParameters, 'reasoning_effort_min_medium', 'reasoning_effort_xhigh']
 export const ClaudeParameters:LLMParameter[] = ['temperature', 'top_k', 'top_p']
