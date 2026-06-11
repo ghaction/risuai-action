@@ -22,7 +22,7 @@ import {
 } from '../chatLoadPages';
 
 //APP_VERSION_POINT is to locate the app version in the database file for version bumping
-export let appVer = "2026.6.110" //<APP_VERSION_POINT>
+export let appVer = "2026.6.113" //<APP_VERSION_POINT>
 export let webAppSubVer = ''
 
 
@@ -1003,6 +1003,7 @@ export interface Database{
     sideMenuRerollButton?:boolean
     requestInfoInsideChat?:boolean
     additionalParams:[string, string][]
+    additionalParamsForAll:[string, string][]
     heightMode:string
     noWaitForTranslate:boolean
     antiClaudeOverload:boolean
