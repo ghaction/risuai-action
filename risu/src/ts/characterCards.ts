@@ -25,7 +25,7 @@ const EXTERNAL_HUB_URL = 'https://sv.risuai.xyz';
 const NIGHTLY_HUB_URL = 'https://nightly.sv.risuai.xyz'
 export const hubURL = isNodeServer
     ? '/hub-proxy'
-    : (window.location.hostname === 'nightly.risuai.xyz' || localStorage.getItem('hub') === 'nightly')
+    : (import.meta.env.VITE_RISU_NIGHTLY_BUILD === 'TRUE' || localStorage.getItem('hub') === 'nightly')
     ? NIGHTLY_HUB_URL 
     : EXTERNAL_HUB_URL;
 
@@ -1013,6 +1013,8 @@ async function importCharacterCardSpec<T extends boolean = false>(card:Character
         prebuiltAssetExclude: data?.extensions?.risuai?.prebuiltAssetExclude ?? [],
         prebuiltAssetStyle: data?.extensions?.risuai?.prebuiltAssetStyle ?? '',
         customModuleToggle: data?.extensions?.risuai?.toggles ?? {},
+        moduleNamespace: data?.extensions?.risuai?.moduleNamespace,
+        hideChatIcon: data?.extensions?.risuai?.hideChatIcon ?? false,
     }
 
     if(card.spec === 'chara_card_v3'){
@@ -1649,7 +1651,9 @@ export function createBaseV3(char:character){
                     prebuiltAssetCommand: char.prebuiltAssetCommand ?? '',
                     prebuiltAssetExclude: char.prebuiltAssetExclude ?? [],
                     prebuiltAssetStyle: char.prebuiltAssetStyle ?? '',
-                    toggles: char.customModuleToggle ?? ''
+                    toggles: char.customModuleToggle ?? '',
+                    moduleNamespace: char.moduleNamespace,
+                    hideChatIcon: char.hideChatIcon ?? false
                 },
                 depth_prompt: char.depth_prompt
             },
@@ -1778,7 +1782,7 @@ export async function getRisuHub(arg:{
         arg.search += ' __shared'
         const stringArg = `search==${arg.search}&&page==${arg.page}&&nsfw==${arg.nsfw}&&sort==${arg.sort}&&web==${(!isNodeServer && !isTauri) ? 'web' : 'other'}`
 
-        const da = await fetch(hubURL + '/realm/' + encodeURIComponent(stringArg), {
+        const da = await fetch(hubURL + '/realm/' + encodeURIComponent(stringArg) + "?cache=30", {
             headers: {
                 "x-risuai-info": appVer + ';' + (isNodeServer ? 'node' : (isTauri ? 'tauri' : 'web'))
             }

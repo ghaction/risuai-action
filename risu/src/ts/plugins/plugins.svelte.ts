@@ -343,25 +343,12 @@ export async function importPlugin(code:string|null = null, argu:{
         let apiInternalVersion: 2|'2.1'|'3.0' = '2.1'
 
         if(apiVersion === '2.1'){
-            const safety = await checkCodeSafety(jsFile)
-            if(!safety.isSafe){
-                pluginAlertModalStore.errors = safety.errors
-                pluginAlertModalStore.open = true
-                
-                //I can use event but lazy
-                while(pluginAlertModalStore.open){
-                    await sleep(100)
-                }
-
-                if(pluginAlertModalStore.errors.length > 0){
-                    return
-                }
-            }
-            apiInternalVersion = '2.1'
+            showError('Your plugin specifies API version 2.1, which is outdated and no longer supported. Please update your plugin to use at least API version 3.0.')
+            return
         }
         else if(apiVersion === '2.0'){
             //Only block installing
-            showError('Your code does not include //@api or specifies API version 2.0, which is outdated. Please update your plugin to use at least API version 2.1.')
+            showError('Your code does not include //@api or specifies API version 2.0, which is outdated. Please update your plugin to use at least API version 3.0.')
             return
         }
         else if(apiVersion === '3.0'){
@@ -462,6 +449,8 @@ export type PluginV2ProviderOptions = {
 
 export type EditFunction = (content: string) => string | null | undefined | Promise<string | null | undefined>
 type ReplacerFunction = (content: OpenAIChat[], type: string) => OpenAIChat[] | Promise<OpenAIChat[]>
+type ChatOutputListenerArg = { char: any, chat: any, characterIndex: number, chatIndex: number, messageIndex: number }
+type ChatOutputListener = (arg: ChatOutputListenerArg) => void | Promise<void>
 
 export const pluginV2 = {
     providers: new Map<string, (arg: PluginV2ProviderArgument, abortSignal?: AbortSignal) => Promise<{ success: boolean, content: string | ReadableStream<string> }>>(),
@@ -472,6 +461,7 @@ export const pluginV2 = {
     editinput: new Set<EditFunction>(),
     replacerbeforeRequest: new Set<ReplacerFunction>(),
     replacerafterRequest: new Set<(content: string, type: string) => string | Promise<string>>(),
+    chatOutput: new Set<ChatOutputListener>(),
     unload: new Set<() => void | Promise<void>>(),
     loaded: false
 }
@@ -562,6 +552,22 @@ export const getV2PluginAPIs = () => {
             }
             else {
                 throw (`replacer handler named ${name} not found`)
+            }
+        },
+        addRisuChatListener: (mode: string, func: ChatOutputListener) => {
+            if (mode === 'output') {
+                pluginV2.chatOutput.add(func)
+            }
+            else {
+                throw (`chat listener mode ${mode} not found`)
+            }
+        },
+        removeRisuChatListener: (mode: string, func: ChatOutputListener) => {
+            if (mode === 'output') {
+                pluginV2.chatOutput.delete(func)
+            }
+            else {
+                throw (`chat listener mode ${mode} not found`)
             }
         },
         onUnload: (func: () => void | Promise<void>) => {
@@ -754,6 +760,7 @@ export const getV2PluginAPIs = () => {
                     db.pluginCustomStorage[key] = newDb[key];
                 }
             }
+            DBState.db = db;
         },
         setDatabase: async (newDb: any) => {
             const db = getDatabase();
@@ -819,6 +826,7 @@ export async function loadV2Plugin(plugins: RisuPlugin[]) {
         pluginV2.editoutput.clear()
         pluginV2.editprocess.clear()
         pluginV2.editinput.clear()
+        pluginV2.chatOutput.clear()
     }
 
     pluginV2.loaded = true
